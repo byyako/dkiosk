@@ -50,6 +50,36 @@
             app:key="keep_screen_on"
             app:summary="@string/keep_screen_on_summary"
             app:title="@string/keep_screen_on" />
+        <SwitchPreferenceCompat
+            app:defaultValue="false"
+            app:key="schedule_enabled"
+            app:summary="@string/schedule_summary"
+            app:title="@string/schedule" />
+        <com.tyllad.dkiosk.settings.TimePreference
+            app:defaultValue="22:00"
+            app:dependency="schedule_enabled"
+            app:key="schedule_off"
+            app:title="@string/schedule_off" />
+        <com.tyllad.dkiosk.settings.TimePreference
+            app:defaultValue="07:00"
+            app:dependency="schedule_enabled"
+            app:key="schedule_on"
+            app:title="@string/schedule_on" />
+        <MultiSelectListPreference
+            app:defaultValue="@array/day_values"
+            app:dependency="schedule_enabled"
+            app:entries="@array/day_entries"
+            app:entryValues="@array/day_values"
+            app:key="schedule_days"
+            app:title="@string/schedule_days" />
+        <ListPreference
+            app:defaultValue="5"
+            app:dependency="schedule_enabled"
+            app:entries="@array/wake_entries"
+            app:entryValues="@array/wake_values"
+            app:key="wake_minutes"
+            app:title="@string/wake"
+            app:useSimpleSummaryProvider="true" />
     </PreferenceCategory>
 
     <PreferenceCategory app:title="@string/settings_security">

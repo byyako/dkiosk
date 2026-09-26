@@ -37,6 +37,7 @@ import com.tyllad.dkiosk.recovery.Backoff
 import com.tyllad.dkiosk.recovery.ErrorScreen
 import com.tyllad.dkiosk.recovery.IdleTimer
 import com.tyllad.dkiosk.recovery.Watchdog
+import com.tyllad.dkiosk.screen.ScreenDimmer
 import com.tyllad.dkiosk.settings.PinPrompt
 import com.tyllad.dkiosk.settings.SettingsActivity
 import com.tyllad.dkiosk.settings.TapSequence
@@ -59,6 +60,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     private lateinit var errorScreen: ErrorScreen
     private lateinit var watchdog: Watchdog
     private lateinit var idleTimer: IdleTimer
+    private lateinit var dimmer: ScreenDimmer
 
     private val handler = Handler(Looper.getMainLooper())
     private val settingsTaps = TapSequence()
@@ -68,6 +70,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     private var failedUrl: String? = null
     private var loadedHomeUrl: String? = null
     private var appliedUserAgent: String? = null
+    private var swallowGesture = false
 
     private val homeUrl: String
         get() = prefs.homeUrl.orEmpty()
@@ -122,6 +125,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         errorScreen = ErrorScreen(binding.errorScreen) { webView.loadUrl(failedUrl ?: homeUrl) }
         watchdog = Watchdog({ webView }, ::onPageUnresponsive)
         idleTimer = IdleTimer(::onIdle)
+        dimmer = ScreenDimmer(binding.blackout, window, prefs)
         webView = createWebView()
         appliedUserAgent = prefs.userAgent
 
@@ -154,11 +158,13 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         webView.onResume()
         watchdog.start()
         applySettings()
+        dimmer.start()
     }
 
     override fun onPause() {
         webView.onPause()
         watchdog.stop()
+        dimmer.stop()
         // Write cookies to disk now so a login survives the process being killed in the background.
         CookieManager.getInstance().flush()
         super.onPause()
@@ -174,6 +180,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         if (::webView.isInitialized) {
             idleTimer.stop()
             watchdog.stop()
+            dimmer.stop()
             binding.webContainer.removeView(webView)
             webView.destroy()
         }
@@ -189,13 +196,17 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         if (event.actionMasked == MotionEvent.ACTION_DOWN) {
             idleTimer.onTouch()
+            // The touch that wakes a dark screen shouldn't also press something on the page.
+            swallowGesture = dimmer.isDark
+            dimmer.onTouch()
             val corner = resources.getDimension(R.dimen.settings_corner)
             val inCorner = event.x > binding.root.width - corner && event.y < corner
             if (inCorner && settingsTaps.onTap(event.eventTime)) {
                 pinPrompt.ask({ openSettings.launch(Intent(this, SettingsActivity::class.java)) })
             }
         }
-        // The taps still reach the page, so buttons in that corner keep working.
+        if (swallowGesture) return true
+        // Corner taps still reach the page, so buttons up there keep working.
         return super.dispatchTouchEvent(event)
     }
 

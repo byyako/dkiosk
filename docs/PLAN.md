@@ -22,7 +22,7 @@ configured on first run.
 2. ✅ Web hardening — host lock + extra-host allowlist, non-web schemes blocked (toast explains), onPageStarted backstop for POSTs, TOFU cert pins with "changed" warning, zoom / user agent / restriction prefs (UI comes in phase 4).
 3. ✅ Auto-recovery — error screen with backoff retry (network errors, 5xx, 60 s load timeout), retry as soon as a network comes back, WebView rebuilt after a renderer crash, JS heartbeat watchdog for hung pages, return home after idle, optional periodic reload. HTTP basic auth prompts with saved logins.
 4. ✅ Admin panel — first-run setup (URL + PIN), 5 taps top-right + PIN (PBKDF2, lockout after 5 misses) opens the settings screen; trusting a certificate needs the PIN; optional home-screen mode via a disabled activity alias; sign out / forget certificates / change PIN / exit.
-5. Screen schedule — overlay, overnight windows (23:00–07:00), touch-to-wake timeout; unit-tested window logic.
+5. ✅ Screen schedule — daily off period (overnight works) on chosen start days, black overlay + zero brightness, a touch wakes it for a set time without pressing anything on the page, remote on/off overrides until the schedule next switches.
 6. HTTP API — `GET /status`, `POST /reload`, `POST /url {url, persist}`, `POST /home`, `POST /screen {state}`; Home Assistant `rest_command` example.
 7. Polish / distribution — release signing (keystore outside repo), README, versioning, optional burn-in pixel shift.
 

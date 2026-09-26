@@ -12,6 +12,7 @@ import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AlertDialog
 import androidx.preference.EditTextPreference
+import androidx.preference.MultiSelectListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreferenceCompat
@@ -22,6 +23,9 @@ import com.tyllad.dkiosk.databinding.ViewNewPinBinding
 import com.tyllad.dkiosk.ui.panForKeyboard
 import com.tyllad.dkiosk.web.allowedHostPattern
 import com.tyllad.dkiosk.web.normalizeHomeUrl
+import java.time.DayOfWeek
+import java.time.format.TextStyle
+import java.util.Locale
 
 class SettingsFragment : PreferenceFragmentCompat() {
 
@@ -34,6 +38,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
         setUpHomeUrl()
         setUpAllowedHosts()
         setUpUserAgent()
+        setUpScheduleDays()
         setUpHomeScreen()
 
         onClick("change_pin", ::changePin)
@@ -99,6 +104,20 @@ class SettingsFragment : PreferenceFragmentCompat() {
     private fun setUpUserAgent() {
         findPreference<EditTextPreference>(KioskPrefs.USER_AGENT)?.setSummaryProvider {
             prefs.userAgent ?: getString(R.string.user_agent_default)
+        }
+    }
+
+    private fun setUpScheduleDays() {
+        findPreference<MultiSelectListPreference>(KioskPrefs.SCHEDULE_DAYS)?.setSummaryProvider {
+            val days = prefs.scheduleDays
+            val weekend = setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
+            when (days) {
+                DayOfWeek.entries.toSet() -> getString(R.string.schedule_every_day)
+                DayOfWeek.entries.toSet() - weekend -> getString(R.string.schedule_weekdays)
+                weekend -> getString(R.string.schedule_weekends)
+                emptySet<DayOfWeek>() -> getString(R.string.schedule_no_days)
+                else -> days.sorted().joinToString(", ") { it.getDisplayName(TextStyle.SHORT, Locale.getDefault()) }
+            }
         }
     }
 
