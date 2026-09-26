@@ -30,6 +30,26 @@ class UrlsTest {
     }
 
     @Test
+    fun schemeOfHandlesOpaqueAndHierarchicalUrls() {
+        assertEquals("https", schemeOf("HTTPS://x.com"))
+        assertEquals("tel", schemeOf("tel:123"))
+        assertEquals("android-app", schemeOf("android-app://com.x/https/y"))
+        assertNull(schemeOf("x.com/path"))
+        assertNull(schemeOf(":nothing"))
+        assertNull(schemeOf("1http://x.com"))
+    }
+
+    @Test
+    fun hostOfStripsUserinfoPortAndCase() {
+        assertEquals("example.com", hostOf("https://user:pw@Example.COM:8443/a?b#c"))
+        assertEquals("example.com", hostOf("https://example.com"))
+        assertEquals("[::1]", hostOf("http://[::1]:8080/"))
+        assertEquals("a.com", hostOf("https://a.com?q=http://b.com"))
+        assertNull(hostOf("tel:123"))
+        assertNull(hostOf("https:///path"))
+    }
+
+    @Test
     fun rejectsJunk() {
         assertNull(normalizeHomeUrl(""))
         assertNull(normalizeHomeUrl("   "))

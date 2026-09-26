@@ -10,3 +10,6 @@ captures/
 *.jks
 *.keystore
 keystore.properties
+
+# Test-site TLS material, regenerated on demand
+testsite/selfsigned.*

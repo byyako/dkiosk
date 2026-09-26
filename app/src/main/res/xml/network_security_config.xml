@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<network-security-config>
+<network-security-config xmlns:tools="http://schemas.android.com/tools">
     <!-- Kiosk pages are often LAN dashboards on plain http (http://192.168.x.x:8123). Domain configs
          can't express IP ranges, so cleartext is allowed app-wide. Self-signed HTTPS is handled
          separately by the WebViewClient, not by trust anchors here. -->
-    <base-config cleartextTrafficPermitted="true">
+    <base-config
+        cleartextTrafficPermitted="true"
+        tools:ignore="InsecureBaseConfiguration">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>

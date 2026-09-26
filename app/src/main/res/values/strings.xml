@@ -4,6 +4,17 @@
     <string name="setup_title">Set up dKiosk</string>
     <string name="setup_message">Enter the page this kiosk should display.</string>
     <string name="setup_url_hint">https://example.com</string>
+    <string name="setup_url_prefix" translatable="false">https://</string>
     <string name="setup_save">Start kiosk</string>
     <string name="setup_invalid_url">Enter an http:// or https:// address</string>
+
+    <string name="blocked_host">Blocked: %1$s isn\'t an allowed site</string>
+    <string name="blocked_scheme">Blocked: %1$s: links can\'t open in the kiosk</string>
+
+    <string name="cert_untrusted_title">Untrusted certificate</string>
+    <string name="cert_untrusted_message">%1$s uses a certificate Android doesn\'t trust, such as a self-signed one.\n\nSHA-256 fingerprint:\n%2$s\n\nOnly trust it if this is your own server and the fingerprint matches.</string>
+    <string name="cert_changed_title">Certificate changed</string>
+    <string name="cert_changed_message">The certificate for %1$s is different from the one trusted before. That\'s expected if the server got a new certificate, but it can also mean someone is intercepting the connection.\n\nNew SHA-256 fingerprint:\n%2$s</string>
+    <string name="cert_trust">Trust</string>
+    <string name="cert_cancel">Cancel</string>
 </resources>

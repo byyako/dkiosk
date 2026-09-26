@@ -18,6 +18,12 @@ adb shell am start -n com.tyllad.dkiosk/.KioskActivity
 SDK packages: use `cmdline-tools/latest/bin/android.exe sdk install build-tools/36.0.0` (slash paths;
 `sdkmanager` is deprecated and `;` breaks through the .bat wrapper).
 
+Device testing against a local test site + DevTools scripting: see "Test recipes" in docs/PLAN.md.
+
+Gradle's build cache is intentionally off: AGP's resource-merge cache key ignores resource folder
+renames and restored an empty `mipmap` output. Lint can also report stale results after
+manifest-only edits; rerun it with `lintDebug --rerun-tasks`.
+
 ## Conventions
 - AGP 9 built-in Kotlin: do NOT apply `org.jetbrains.kotlin.android`. Versions live in `gradle/libs.versions.toml`.
 - Nothing user-specific hardcoded (URLs, tokens, PINs) — the app is meant to be distributed.

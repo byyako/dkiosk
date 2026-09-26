@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>dKiosk test page</title>
+  <style>
+    body { font: 18px system-ui, sans-serif; background: #111; color: #eee; margin: 0; padding: 16px; }
+    h1 { margin: 0 0 8px; font-size: 24px; }
+    a, button { display: inline-block; margin: 4px; padding: 10px 14px; background: #2563eb; color: #fff;
+                border: 0; border-radius: 6px; font: inherit; text-decoration: none; }
+    form { display: inline; }
+    iframe { border: 1px solid #444; width: 360px; height: 110px; background: #fff; }
+  </style>
+</head>
+<body>
+  <h1>dKiosk test page</h1>
+  <p>Loaded over <b id="proto"></b> at <span id="time"></span></p>
+  <div>
+    <a id="same" href="/page2.html">Same site</a>
+    <a id="offsite" href="https://example.com/">Off-site</a>
+    <a id="blank" href="https://example.com/" target="_blank">Off-site _blank</a>
+    <a id="tel" href="tel:5551234">tel:</a>
+    <a id="mailto" href="mailto:test@example.com">mailto:</a>
+    <a id="intent" href="intent://scan/#Intent;scheme=zxing;end">intent:</a>
+    <a id="tls" href="https://localhost:8781/">Self-signed HTTPS</a>
+    <form id="post" method="post" action="https://example.com/"><button>Off-site POST</button></form>
+    <button id="jsnav" onclick="location.href = 'https://example.org/'">JS nav off-site</button>
+  </div>
+  <p>Off-site iframe (allowed: only top-level pages are restricted)</p>
+  <iframe id="frame" src="https://example.com/"></iframe>
+  <script>
+    document.getElementById("proto").textContent = location.protocol;
+    document.getElementById("time").textContent = new Date().toLocaleTimeString();
+  </script>
+</body>
+</html>
