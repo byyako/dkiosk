@@ -1,7 +1,7 @@
 # dKiosk Browser
 
 Android kiosk browser (Kotlin, single Activity + system WebView). Roadmap and design decisions:
-[docs/PLAN.md](docs/PLAN.md) — keep its phase checklist current.
+[PLAN.md](PLAN.md) — keep its phase checklist current.
 
 ## Build & run (Windows)
 JDK and SDK are user-local installs; nothing is on PATH.
@@ -18,7 +18,7 @@ adb shell am start -n com.tyllad.dkiosk/.KioskActivity
 SDK packages: use `cmdline-tools/latest/bin/android.exe sdk install build-tools/36.0.0` (slash paths;
 `sdkmanager` is deprecated and `;` breaks through the .bat wrapper).
 
-Device testing against a local test site + DevTools scripting: see "Test recipes" in docs/PLAN.md.
+Device testing against a local test site + DevTools scripting: see "Test recipes" in [PLAN.md](PLAN.md).
 
 Gradle's build cache is intentionally off: AGP's resource-merge cache key ignores resource folder
 renames and restored an empty `mipmap` output. Lint can also report stale results after

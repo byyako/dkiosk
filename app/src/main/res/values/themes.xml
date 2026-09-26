@@ -1,5 +1,10 @@
 <resources>
-    <style name="Theme.DKiosk" parent="Theme.AppCompat.DayNight.NoActionBar">
+    <!-- Setup and settings screens follow the system light/dark mode. -->
+    <style name="Theme.DKiosk" parent="Theme.Material3.DayNight.NoActionBar" />
+
+    <!-- Black behind the page so nothing flashes white while it loads. The theme stays DayNight
+         because WebView reports it to pages as prefers-color-scheme. -->
+    <style name="Theme.DKiosk.Kiosk">
         <item name="android:windowBackground">@android:color/black</item>
     </style>
 </resources>

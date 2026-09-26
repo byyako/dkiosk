@@ -2,48 +2,129 @@ package com.tyllad.dkiosk.config
 
 import android.content.Context
 import androidx.core.content.edit
+import java.time.DayOfWeek
+import java.time.LocalTime
 
-/** Persistent kiosk settings. Nothing is hardcoded so every install is configured by its owner. */
+/**
+ * All kiosk settings, stored in one SharedPreferences file that the settings screen edits directly.
+ * List-style settings are kept as strings because that's what ListPreference writes.
+ */
 class KioskPrefs(context: Context) {
 
     private val prefs = context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
 
-    /** The page the kiosk shows; null until first-run setup completes. */
+    // Setup
+
     var homeUrl: String?
-        get() = prefs.getString(KEY_HOME_URL, null)
-        set(value) = prefs.edit { putString(KEY_HOME_URL, value) }
+        get() = prefs.getString(HOME_URL, null)
+        set(value) = prefs.edit { putString(HOME_URL, value) }
 
-    /** When on, top-level pages must be on the home URL's host or in [allowedHosts]. */
-    var restrictNavigation: Boolean
-        get() = prefs.getBoolean(KEY_RESTRICT_NAVIGATION, true)
-        set(value) = prefs.edit { putBoolean(KEY_RESTRICT_NAVIGATION, value) }
+    var pinHash: String?
+        get() = prefs.getString(PIN_HASH, null)
+        set(value) = prefs.edit { putString(PIN_HASH, value) }
 
-    /** Sites allowed besides the home URL's host, e.g. an SSO login domain. Supports "*.example.com". */
-    var allowedHosts: Set<String>
-        get() = prefs.getStringSet(KEY_ALLOWED_HOSTS, null)?.toSet().orEmpty()
-        set(value) = prefs.edit { putStringSet(KEY_ALLOWED_HOSTS, value) }
+    val isSetUp: Boolean
+        get() = homeUrl != null && pinHash != null
 
-    var allowZoom: Boolean
-        get() = prefs.getBoolean(KEY_ALLOW_ZOOM, false)
-        set(value) = prefs.edit { putBoolean(KEY_ALLOW_ZOOM, value) }
+    // Page
 
-    /** Replaces WebView's user agent when set; null keeps the default. */
-    var userAgent: String?
-        get() = prefs.getString(KEY_USER_AGENT, null)?.ifBlank { null }
-        set(value) = prefs.edit { putString(KEY_USER_AGENT, value) }
+    val restrictNavigation: Boolean
+        get() = prefs.getBoolean(RESTRICT_NAVIGATION, true)
 
-    /** Trust-on-first-use certificate pins; see [com.tyllad.dkiosk.web.CertificatePins]. */
+    /** Extra sites the kiosk may open, one per line. */
+    val allowedHosts: List<String>
+        get() = prefs.getString(ALLOWED_HOSTS, "").orEmpty().lines().map { it.trim() }.filter { it.isNotEmpty() }
+
+    val allowZoom: Boolean
+        get() = prefs.getBoolean(ALLOW_ZOOM, false)
+
+    val userAgent: String?
+        get() = prefs.getString(USER_AGENT, null)?.trim()?.ifEmpty { null }
+
     var trustedCerts: Set<String>
-        get() = prefs.getStringSet(KEY_TRUSTED_CERTS, null)?.toSet().orEmpty()
-        set(value) = prefs.edit { putStringSet(KEY_TRUSTED_CERTS, value) }
+        get() = prefs.getStringSet(TRUSTED_CERTS, null)?.toSet().orEmpty()
+        set(value) = prefs.edit { putStringSet(TRUSTED_CERTS, value) }
+
+    // Recovery
+
+    /** Go back to the home page after this long without a touch; 0 turns it off. */
+    val idleHomeMinutes: Int
+        get() = prefs.getString(IDLE_HOME_MINUTES, "5")?.toIntOrNull() ?: 5
+
+    /** Reload the page this often; 0 turns it off. */
+    val reloadMinutes: Int
+        get() = prefs.getString(RELOAD_MINUTES, "0")?.toIntOrNull() ?: 0
+
+    // Screen
+
+    val keepScreenOn: Boolean
+        get() = prefs.getBoolean(KEEP_SCREEN_ON, true)
+
+    val burnInShift: Boolean
+        get() = prefs.getBoolean(BURN_IN_SHIFT, false)
+
+    val scheduleEnabled: Boolean
+        get() = prefs.getBoolean(SCHEDULE_ENABLED, false)
+
+    val screenOffAt: LocalTime
+        get() = parseTime(prefs.getString(SCHEDULE_OFF, null)) ?: DEFAULT_OFF
+
+    val screenOnAt: LocalTime
+        get() = parseTime(prefs.getString(SCHEDULE_ON, null)) ?: DEFAULT_ON
+
+    /** Days on which the off period starts. */
+    val scheduleDays: Set<DayOfWeek>
+        get() {
+            val stored = prefs.getStringSet(SCHEDULE_DAYS, null) ?: return DayOfWeek.entries.toSet()
+            return stored.mapNotNull { it.toIntOrNull()?.takeIf { day -> day in 1..7 }?.let(DayOfWeek::of) }.toSet()
+        }
+
+    /** How long a touch wakes the screen during an off period. */
+    val wakeMinutes: Int
+        get() = prefs.getString(WAKE_MINUTES, "5")?.toIntOrNull() ?: 5
+
+    // Remote control
+
+    val apiEnabled: Boolean
+        get() = prefs.getBoolean(API_ENABLED, false)
+
+    val apiPort: Int
+        get() = prefs.getString(API_PORT, null)?.toIntOrNull()?.takeIf { it in 1024..65535 } ?: DEFAULT_API_PORT
+
+    var apiToken: String?
+        get() = prefs.getString(API_TOKEN, null)
+        set(value) = prefs.edit { putString(API_TOKEN, value) }
 
     companion object {
         const val FILE_NAME = "kiosk"
-        private const val KEY_HOME_URL = "home_url"
-        private const val KEY_RESTRICT_NAVIGATION = "restrict_navigation"
-        private const val KEY_ALLOWED_HOSTS = "allowed_hosts"
-        private const val KEY_ALLOW_ZOOM = "allow_zoom"
-        private const val KEY_USER_AGENT = "user_agent"
-        private const val KEY_TRUSTED_CERTS = "trusted_certs"
+
+        const val HOME_URL = "home_url"
+        const val PIN_HASH = "pin_hash"
+        const val RESTRICT_NAVIGATION = "restrict_navigation"
+        const val ALLOWED_HOSTS = "allowed_hosts"
+        const val ALLOW_ZOOM = "allow_zoom"
+        const val USER_AGENT = "user_agent"
+        const val TRUSTED_CERTS = "trusted_certs"
+        const val IDLE_HOME_MINUTES = "idle_home_minutes"
+        const val RELOAD_MINUTES = "reload_minutes"
+        const val KEEP_SCREEN_ON = "keep_screen_on"
+        const val BURN_IN_SHIFT = "burn_in_shift"
+        const val SCHEDULE_ENABLED = "schedule_enabled"
+        const val SCHEDULE_OFF = "schedule_off"
+        const val SCHEDULE_ON = "schedule_on"
+        const val SCHEDULE_DAYS = "schedule_days"
+        const val WAKE_MINUTES = "wake_minutes"
+        const val API_ENABLED = "api_enabled"
+        const val API_PORT = "api_port"
+        const val API_TOKEN = "api_token"
+
+        const val DEFAULT_API_PORT = 8765
+        val DEFAULT_OFF: LocalTime = LocalTime.of(22, 0)
+        val DEFAULT_ON: LocalTime = LocalTime.of(7, 0)
+
+        fun parseTime(value: String?): LocalTime? {
+            val (hour, minute) = value?.split(":")?.mapNotNull { it.toIntOrNull() }?.takeIf { it.size == 2 } ?: return null
+            return if (hour in 0..23 && minute in 0..59) LocalTime.of(hour, minute) else null
+        }
     }
 }

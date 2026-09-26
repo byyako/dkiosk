@@ -50,5 +50,12 @@ fun hostOf(url: String): String? {
     return host.lowercase().ifEmpty { null }
 }
 
+/** True if both URLs show the same page, ignoring a trailing slash and the #fragment. */
+fun isSamePage(a: String?, b: String?): Boolean {
+    if (a == null || b == null) return false
+    fun strip(url: String) = url.substringBefore('#').trimEnd('/')
+    return strip(a) == strip(b)
+}
+
 /** Host form used for comparisons: lowercase, no trailing dot, no leading "www.". */
 fun canonicalHost(host: String): String = host.lowercase().trimEnd('.').removePrefix("www.")

@@ -1,7 +1,9 @@
 package com.tyllad.dkiosk.web
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class UrlsTest {
@@ -47,6 +49,15 @@ class UrlsTest {
         assertEquals("a.com", hostOf("https://a.com?q=http://b.com"))
         assertNull(hostOf("tel:123"))
         assertNull(hostOf("https:///path"))
+    }
+
+    @Test
+    fun samePageIgnoresTrailingSlashAndFragment() {
+        assertTrue(isSamePage("https://a.com/", "https://a.com"))
+        assertTrue(isSamePage("https://a.com/dash#top", "https://a.com/dash"))
+        assertFalse(isSamePage("https://a.com/dash", "https://a.com/other"))
+        assertFalse(isSamePage("https://a.com/?x=1", "https://a.com/?x=2"))
+        assertFalse(isSamePage(null, "https://a.com"))
     }
 
     @Test

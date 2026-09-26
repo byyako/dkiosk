@@ -26,14 +26,13 @@ configured on first run.
 6. HTTP API — `GET /status`, `POST /reload`, `POST /url {url, persist}`, `POST /home`, `POST /screen {state}`; Home Assistant `rest_command` example.
 7. Polish / distribution — release signing (keystore outside repo), README, versioning, optional burn-in pixel shift.
 
-## Backlog
-- HTTP basic auth (`onReceivedHttpAuthRequest`): LAN dashboards behind nginx basic auth currently get a 401.
-
 ## Test recipes
 - Test site: `python -u testsite/serve.py` (HTTP :8780, self-signed HTTPS :8781; `--new-cert` rotates the cert),
   then `adb reverse tcp:8780 tcp:8780` and `adb reverse tcp:8781 tcp:8781`; home URL `http://localhost:8780/`.
 - Drive the page (debug builds): `adb forward tcp:9222 localabstract:webview_devtools_remote_<pid>`, then
   `node testsite/cdp.mjs "document.getElementById('tel').click()"`.
 - Network loss: `adb shell svc wifi disable` / `enable`
-- Renderer crash: load `chrome://crash`
+- Renderer crash: `node testsite/cdp.mjs --method Page.crash`
+- Hung page: `node testsite/cdp.mjs --timeout 2000 "setTimeout(() => { while (true) {} }, 100)"` (recovers in ~45 s)
+- Basic auth: `/private/` on the test site; 5xx: `/503`
 - Reset to first run: `adb shell pm clear com.tyllad.dkiosk`

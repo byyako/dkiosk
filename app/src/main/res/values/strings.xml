@@ -16,5 +16,17 @@
     <string name="cert_changed_title">Certificate changed</string>
     <string name="cert_changed_message">The certificate for %1$s is different from the one trusted before. That\'s expected if the server got a new certificate, but it can also mean someone is intercepting the connection.\n\nNew SHA-256 fingerprint:\n%2$s</string>
     <string name="cert_trust">Trust</string>
-    <string name="cert_cancel">Cancel</string>
+
+    <string name="login_title">Sign in</string>
+    <string name="login_message">%1$s wants a username and password.</string>
+    <string name="login_message_realm">%1$s (%2$s) wants a username and password.</string>
+    <string name="login_username">Username</string>
+    <string name="login_password">Password</string>
+    <string name="login_sign_in">Sign in</string>
+
+    <string name="error_title">Can\'t reach %1$s</string>
+    <string name="error_countdown">Trying again in %1$d s</string>
+    <string name="error_retrying">Trying again…</string>
+    <string name="error_retry_now">Try now</string>
+    <string name="error_timeout">The page took too long to load.</string>
 </resources>
