@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">dKiosk Browser</string>
+
+    <string name="setup_title">Set up dKiosk</string>
+    <string name="setup_message">Enter the page this kiosk should display.</string>
+    <string name="setup_url_hint">https://example.com</string>
+    <string name="setup_save">Start kiosk</string>
+    <string name="setup_invalid_url">Enter an http:// or https:// address</string>
+</resources>
