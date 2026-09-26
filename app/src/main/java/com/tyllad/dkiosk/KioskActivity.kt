@@ -6,6 +6,7 @@ import android.content.pm.ApplicationInfo
 import android.graphics.Color
 import android.net.ConnectivityManager
 import android.net.Network
+import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -37,6 +38,9 @@ import com.tyllad.dkiosk.recovery.Backoff
 import com.tyllad.dkiosk.recovery.ErrorScreen
 import com.tyllad.dkiosk.recovery.IdleTimer
 import com.tyllad.dkiosk.recovery.Watchdog
+import com.tyllad.dkiosk.remote.ApiServer
+import com.tyllad.dkiosk.remote.KioskApi
+import com.tyllad.dkiosk.remote.KioskControl
 import com.tyllad.dkiosk.screen.ScreenDimmer
 import com.tyllad.dkiosk.settings.PinPrompt
 import com.tyllad.dkiosk.settings.SettingsActivity
@@ -49,6 +53,10 @@ import com.tyllad.dkiosk.web.PagePrompts
 import com.tyllad.dkiosk.web.Verdict
 import com.tyllad.dkiosk.web.hostOf
 import com.tyllad.dkiosk.web.isSamePage
+import java.io.IOException
+import java.util.concurrent.FutureTask
+import java.util.concurrent.TimeUnit
+import org.json.JSONObject
 
 class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
 
@@ -68,9 +76,12 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     private val rendererBackoff = Backoff()
     private var lastRendererLossAt = 0L
     private var failedUrl: String? = null
+    private var failure: String? = null
     private var loadedHomeUrl: String? = null
     private var appliedUserAgent: String? = null
     private var swallowGesture = false
+    private var apiServer: ApiServer? = null
+    private var apiServerToken: String? = null
 
     private val homeUrl: String
         get() = prefs.homeUrl.orEmpty()
@@ -177,6 +188,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
+        apiServer?.stop()
         if (::webView.isInitialized) {
             idleTimer.stop()
             watchdog.stop()
@@ -232,12 +244,14 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         handler.removeCallbacks(loadTimeout)
         pageBackoff.reset()
         failedUrl = null
+        failure = null
         errorScreen.hide()
     }
 
     override fun onPageFailed(url: String, reason: String) {
         handler.removeCallbacks(loadTimeout)
         failedUrl = url
+        failure = reason
         errorScreen.show(hostOf(url) ?: url, reason, pageBackoff.nextDelayMs())
     }
 
@@ -341,6 +355,75 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         }
         idleTimer.timeoutMs = prefs.idleHomeMinutes * 60_000L
         scheduleReload()
+        applyApiSettings()
+    }
+
+    private fun applyApiSettings() {
+        if (prefs.apiEnabled && prefs.apiToken == null) prefs.apiToken = KioskApi.newToken()
+        val token = prefs.apiToken?.takeIf { prefs.apiEnabled }
+
+        val running = apiServer
+        if (running != null && (token != apiServerToken || running.port != prefs.apiPort)) {
+            running.stop()
+            apiServer = null
+        }
+        if (token == null || apiServer != null) return
+
+        val server = ApiServer(prefs.apiPort, KioskApi(token, remoteControl))
+        try {
+            server.start()
+            apiServer = server
+            apiServerToken = token
+        } catch (e: IOException) {
+            Log.w(TAG, "Can't start the API on port ${prefs.apiPort}", e)
+            Toast.makeText(this, getString(R.string.api_port_busy, prefs.apiPort), Toast.LENGTH_LONG).show()
+        }
+    }
+
+    // Remote control
+
+    private val remoteControl = object : KioskControl {
+        override fun status() = onMainThread {
+            val battery = getSystemService(BatteryManager::class.java)
+            JSONObject()
+                .put("url", webView.url)
+                .put("title", webView.title)
+                .put("homeUrl", homeUrl)
+                .put("screen", if (dimmer.isDark) "off" else "on")
+                .put("error", failure)
+                .put("battery", battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY))
+                .put("charging", battery.isCharging)
+                .put("version", packageManager.getPackageInfo(packageName, 0).versionName)
+        }
+
+        override fun reload() = onMainThread { webView.reload() }
+
+        override fun goHome() = onMainThread { loadHome() }
+
+        override fun open(url: String, makeHome: Boolean): String? = onMainThread {
+            val host = hostOf(url).orEmpty()
+            when {
+                makeHome -> {
+                    prefs.homeUrl = url
+                    loadHome()
+                    null
+                }
+                !navigationPolicy().allowsHost(host) -> getString(R.string.blocked_host, host)
+                else -> {
+                    webView.loadUrl(url)
+                    null
+                }
+            }
+        }
+
+        override fun setScreen(on: Boolean) = onMainThread { dimmer.turn(on) }
+    }
+
+    /** API requests arrive on worker threads; this runs [block] on the main thread and waits for it. */
+    private fun <T> onMainThread(block: () -> T): T {
+        val task = FutureTask(block)
+        handler.post(task)
+        return task.get(5, TimeUnit.SECONDS)
     }
 
     private fun scheduleReload() {

@@ -82,6 +82,29 @@
             app:useSimpleSummaryProvider="true" />
     </PreferenceCategory>
 
+    <PreferenceCategory app:title="@string/settings_remote">
+        <SwitchPreferenceCompat
+            app:defaultValue="false"
+            app:key="api_enabled"
+            app:summary="@string/api_enabled_summary"
+            app:title="@string/api_enabled" />
+        <EditTextPreference
+            app:defaultValue="8765"
+            app:dependency="api_enabled"
+            app:key="api_port"
+            app:title="@string/api_port"
+            app:useSimpleSummaryProvider="true" />
+        <Preference
+            app:dependency="api_enabled"
+            app:key="api_address"
+            app:title="@string/api_address" />
+        <Preference
+            app:dependency="api_enabled"
+            app:key="api_token"
+            app:summary="@string/api_token_summary"
+            app:title="@string/api_token" />
+    </PreferenceCategory>
+
     <PreferenceCategory app:title="@string/settings_security">
         <Preference
             app:key="change_pin"

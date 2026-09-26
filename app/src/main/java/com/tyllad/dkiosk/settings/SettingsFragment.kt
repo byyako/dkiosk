@@ -1,7 +1,10 @@
 package com.tyllad.dkiosk.settings
 
 import android.app.Activity
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.text.InputType
 import android.view.LayoutInflater
@@ -20,6 +23,8 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.tyllad.dkiosk.R
 import com.tyllad.dkiosk.config.KioskPrefs
 import com.tyllad.dkiosk.databinding.ViewNewPinBinding
+import com.tyllad.dkiosk.remote.KioskApi
+import com.tyllad.dkiosk.remote.localIpAddress
 import com.tyllad.dkiosk.ui.panForKeyboard
 import com.tyllad.dkiosk.web.allowedHostPattern
 import com.tyllad.dkiosk.web.normalizeHomeUrl
@@ -39,8 +44,11 @@ class SettingsFragment : PreferenceFragmentCompat() {
         setUpAllowedHosts()
         setUpUserAgent()
         setUpScheduleDays()
+        setUpApi()
         setUpHomeScreen()
 
+        onClick("api_token", ::showApiToken)
+        onClick("api_address") { findPreference<Preference>("api_address")?.summary?.let { copy(it.toString()) } }
         onClick("change_pin", ::changePin)
         onClick("forget_certificates", ::forgetCertificates)
         onClick("clear_site_data", ::clearSiteData)
@@ -54,6 +62,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
     override fun onResume() {
         super.onResume()
+        updateApiAddress()
         // Coming back from Android's home app screen, the choice may have changed.
         findPreference<SwitchPreferenceCompat>("home_screen")?.isChecked = HomeApp.isOffered(requireContext())
         findPreference<Preference>("choose_home_app")?.setSummary(
@@ -119,6 +128,49 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 else -> days.sorted().joinToString(", ") { it.getDisplayName(TextStyle.SHORT, Locale.getDefault()) }
             }
         }
+    }
+
+    private fun setUpApi() {
+        findPreference<SwitchPreferenceCompat>(KioskPrefs.API_ENABLED)?.setOnPreferenceChangeListener { _, enabled ->
+            if (enabled == true && prefs.apiToken == null) prefs.apiToken = KioskApi.newToken()
+            true
+        }
+        findPreference<EditTextPreference>(KioskPrefs.API_PORT)?.apply {
+            setOnBindEditTextListener { it.inputType = InputType.TYPE_CLASS_NUMBER }
+            setOnPreferenceChangeListener { _, value ->
+                val valid = (value as String).toIntOrNull() in 1024..65535
+                if (!valid) toast(R.string.api_port_invalid)
+                valid
+            }
+        }
+    }
+
+    private fun updateApiAddress() {
+        val address = localIpAddress(requireContext())
+        findPreference<Preference>("api_address")?.summary =
+            if (address == null) getString(R.string.api_address_offline) else "http://$address:${prefs.apiPort}"
+    }
+
+    private fun showApiToken() {
+        val token = prefs.apiToken ?: KioskApi.newToken().also { prefs.apiToken = it }
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.api_token)
+            .setMessage(getString(R.string.api_token_help, token))
+            .setPositiveButton(R.string.api_token_copy) { _, _ -> copy(token) }
+            .setNeutralButton(R.string.api_token_new) { _, _ ->
+                prefs.apiToken = KioskApi.newToken()
+                toast(R.string.api_token_replaced)
+                showApiToken()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun copy(text: String) {
+        val clipboard = requireContext().getSystemService(ClipboardManager::class.java)
+        clipboard.setPrimaryClip(ClipData.newPlainText(getString(R.string.app_name), text))
+        // Android 13+ confirms copies itself.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) toast(R.string.copied)
     }
 
     private fun setUpHomeScreen() {

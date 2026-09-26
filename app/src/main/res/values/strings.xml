@@ -84,6 +84,22 @@
     <string name="schedule_no_days">No days</string>
     <string name="wake">A touch wakes it for</string>
 
+    <string name="settings_remote">Remote control</string>
+    <string name="api_enabled">HTTP API</string>
+    <string name="api_enabled_summary">Control the kiosk from your network, for example from Home Assistant</string>
+    <string name="api_port">Port</string>
+    <string name="api_port_invalid">Use a port from 1024 to 65535</string>
+    <string name="api_port_busy">Couldn\'t start the API: port %1$d is already in use</string>
+    <string name="api_address">Address</string>
+    <string name="api_address_offline">Not connected to a network</string>
+    <string name="api_token">Access token</string>
+    <string name="api_token_summary">Tap to see, copy or replace it</string>
+    <string name="api_token_help">Send it with every request as\nAuthorization: Bearer &lt;token&gt;\n\n%1$s</string>
+    <string name="api_token_copy">Copy</string>
+    <string name="api_token_new">New token</string>
+    <string name="api_token_replaced">New token saved. Update anything that uses the old one.</string>
+    <string name="copied">Copied</string>
+
     <string name="settings_security">Security</string>
     <string name="change_pin">Change PIN</string>
     <string name="forget_certificates">Forget trusted certificates</string>

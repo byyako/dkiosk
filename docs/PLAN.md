@@ -23,7 +23,7 @@ configured on first run.
 3. ✅ Auto-recovery — error screen with backoff retry (network errors, 5xx, 60 s load timeout), retry as soon as a network comes back, WebView rebuilt after a renderer crash, JS heartbeat watchdog for hung pages, return home after idle, optional periodic reload. HTTP basic auth prompts with saved logins.
 4. ✅ Admin panel — first-run setup (URL + PIN), 5 taps top-right + PIN (PBKDF2, lockout after 5 misses) opens the settings screen; trusting a certificate needs the PIN; optional home-screen mode via a disabled activity alias; sign out / forget certificates / change PIN / exit.
 5. ✅ Screen schedule — daily off period (overnight works) on chosen start days, black overlay + zero brightness, a touch wakes it for a set time without pressing anything on the page, remote on/off overrides until the schedule next switches.
-6. HTTP API — `GET /status`, `POST /reload`, `POST /url {url, persist}`, `POST /home`, `POST /screen {state}`; Home Assistant `rest_command` example.
+6. ✅ HTTP API — small built-in server (no dependency), bearer token, off by default: `GET /status`, `POST /reload`, `POST /home`, `POST /url {url, home}`, `POST /screen {state}`. Settings show the address and token.
 7. Polish / distribution — release signing (keystore outside repo), README, versioning, optional burn-in pixel shift.
 
 ## Test recipes
