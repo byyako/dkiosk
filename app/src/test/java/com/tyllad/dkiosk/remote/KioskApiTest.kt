@@ -35,7 +35,12 @@ class KioskApiTest {
     private val kiosk = FakeKiosk()
     private val api = KioskApi("secret-token", kiosk)
 
-    private fun call(method: String, path: String, body: String = "", auth: String? = "Bearer secret-token"): HttpResponse {
+    private fun call(
+        method: String,
+        path: String,
+        body: String = "",
+        auth: String? = "Bearer secret-token",
+    ): HttpResponse {
         val authHeader = auth?.let { "Authorization: $it\r\n" }.orEmpty()
         val raw = "$method $path HTTP/1.1\r\n${authHeader}Content-Length: ${body.toByteArray().size}\r\n\r\n$body"
         return api.handle(HttpRequest.read(raw.byteInputStream()))

@@ -123,7 +123,9 @@ class KioskPrefs(context: Context) {
         val DEFAULT_ON: LocalTime = LocalTime.of(7, 0)
 
         fun parseTime(value: String?): LocalTime? {
-            val (hour, minute) = value?.split(":")?.mapNotNull { it.toIntOrNull() }?.takeIf { it.size == 2 } ?: return null
+            val parts = value?.split(":")?.mapNotNull { it.toIntOrNull() }
+            if (parts?.size != 2) return null
+            val (hour, minute) = parts
             return if (hour in 0..23 && minute in 0..59) LocalTime.of(hour, minute) else null
         }
     }

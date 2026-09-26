@@ -1,10 +1,10 @@
 package com.tyllad.dkiosk.remote
 
+import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
-import org.json.JSONObject
 
 /** Just enough HTTP/1.1 for a handful of JSON commands: one request per connection, no chunking. */
 class HttpRequest(
@@ -42,7 +42,9 @@ class HttpRequest(
                 line.substring(0, colon).trim().lowercase() to line.substring(colon + 1).trim()
             }
 
-            val length = headers["content-length"]?.let { it.toIntOrNull() ?: throw BadRequestException("Bad Content-Length") } ?: 0
+            val length = headers["content-length"]?.let {
+                it.toIntOrNull() ?: throw BadRequestException("Bad Content-Length")
+            } ?: 0
             if (length !in 0..MAX_BODY_BYTES) throw BadRequestException("Body too large")
             val body = ByteArray(length)
             var read = 0

@@ -66,6 +66,8 @@ fun allowedHostPattern(entry: String): String? {
 
 /** Letters, digits, dots, hyphens and underscores, or a bracketed IPv6 address. */
 private fun isHostName(host: String): Boolean {
-    if (host.startsWith("[")) return host.endsWith("]") && host.drop(1).dropLast(1).all { it.isLetterOrDigit() || it in ":." }
+    if (host.startsWith("[")) {
+        return host.endsWith("]") && host.removeSurrounding("[", "]").all { it.isLetterOrDigit() || it in ":." }
+    }
     return host.all { it.isLetterOrDigit() || it in ".-_" }
 }

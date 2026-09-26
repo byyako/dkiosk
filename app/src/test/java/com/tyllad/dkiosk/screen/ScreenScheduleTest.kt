@@ -1,5 +1,8 @@
 package com.tyllad.dkiosk.screen
 
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
 import java.time.DayOfWeek
 import java.time.DayOfWeek.FRIDAY
 import java.time.DayOfWeek.MONDAY
@@ -8,9 +11,6 @@ import java.time.DayOfWeek.SUNDAY
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Test
 
 class ScreenScheduleTest {
 

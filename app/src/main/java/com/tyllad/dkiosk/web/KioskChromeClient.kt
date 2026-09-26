@@ -27,7 +27,14 @@ class KioskChromeClient(private val activity: Activity) : WebChromeClient() {
     override fun onJsConfirm(view: WebView, url: String, message: String, result: JsResult): Boolean =
         show(message, result, withCancel = true)
 
-    override fun onJsPrompt(view: WebView, url: String, message: String, defaultValue: String?, result: JsPromptResult): Boolean {
+    // Text prompts aren't supported; the page sees the prompt cancelled.
+    override fun onJsPrompt(
+        view: WebView,
+        url: String,
+        message: String,
+        defaultValue: String?,
+        result: JsPromptResult,
+    ): Boolean {
         result.cancel()
         return true
     }

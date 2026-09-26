@@ -8,8 +8,8 @@ import com.tyllad.dkiosk.R
 import com.tyllad.dkiosk.config.KioskPrefs
 import com.tyllad.dkiosk.databinding.ActivitySetupBinding
 import com.tyllad.dkiosk.settings.Pin
-import com.tyllad.dkiosk.ui.padForSystemBars
 import com.tyllad.dkiosk.settings.readNewPin
+import com.tyllad.dkiosk.ui.padForSystemBars
 import com.tyllad.dkiosk.web.normalizeHomeUrl
 
 /** First run: pick the page and a PIN for the settings. Everything else has working defaults. */

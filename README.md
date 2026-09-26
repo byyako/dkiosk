@@ -120,7 +120,7 @@ You need JDK 17 and the Android SDK (platform 37, build tools 36). Then:
 
 Debug builds install as a separate app ("dKiosk (debug)") next to the release build. See
 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for release signing, the local test site and on-device
-testing, and [docs/PLAN.md](docs/PLAN.md) for the design notes.
+testing, and [docs/DESIGN.md](docs/DESIGN.md) for the design notes.
 
 ## License
 

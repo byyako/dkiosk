@@ -54,10 +54,10 @@ import com.tyllad.dkiosk.web.PagePrompts
 import com.tyllad.dkiosk.web.Verdict
 import com.tyllad.dkiosk.web.hostOf
 import com.tyllad.dkiosk.web.isSamePage
+import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.FutureTask
 import java.util.concurrent.TimeUnit
-import org.json.JSONObject
 
 class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
 
@@ -241,7 +241,10 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         }
         if (pageLost) {
             // Typically the home page redirected to a login on another site: say which one to allow.
-            val reason = if (verdict is Verdict.BlockedHost) getString(R.string.error_redirect_blocked, verdict.host) else message
+            val reason = when (verdict) {
+                is Verdict.BlockedHost -> getString(R.string.error_redirect_blocked, verdict.host)
+                else -> message
+            }
             onPageFailed(loadingUrl ?: homeUrl, reason)
         } else {
             Toast.makeText(this, message, Toast.LENGTH_SHORT).show()

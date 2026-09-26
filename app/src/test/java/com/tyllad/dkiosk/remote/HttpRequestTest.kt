@@ -1,11 +1,11 @@
 package com.tyllad.dkiosk.remote
 
-import java.io.ByteArrayOutputStream
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.ByteArrayOutputStream
 
 class HttpRequestTest {
 

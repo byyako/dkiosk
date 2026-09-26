@@ -1,7 +1,7 @@
 # Development
 
 dKiosk is a single-module Android app in Kotlin: one activity hosting the system WebView, plus the
-setup and settings screens. Design decisions and their reasons are in [PLAN.md](PLAN.md).
+setup and settings screens. Design decisions and their reasons are in [DESIGN.md](DESIGN.md).
 
 ## Layout
 

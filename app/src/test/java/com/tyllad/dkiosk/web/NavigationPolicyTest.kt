@@ -8,8 +8,11 @@ import org.junit.Test
 
 class NavigationPolicyTest {
 
-    private fun policy(home: String = "http://dash.example.com:8123/lovelace", vararg extra: String, restrict: Boolean = true) =
-        NavigationPolicy(home, extra.toList(), restrict)
+    private fun policy(
+        home: String = "http://dash.example.com:8123/lovelace",
+        vararg extra: String,
+        restrict: Boolean = true,
+    ) = NavigationPolicy(home, extra.toList(), restrict)
 
     @Test
     fun allowsHomeHostOnAnyPortOrScheme() {

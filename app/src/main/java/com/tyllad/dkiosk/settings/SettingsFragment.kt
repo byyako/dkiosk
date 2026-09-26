@@ -104,7 +104,9 @@ class SettingsFragment : PreferenceFragmentCompat() {
             prefs.allowedHosts.joinToString(", ").ifEmpty { getString(R.string.allowed_hosts_none) }
         }
         pref.setOnPreferenceChangeListener { _, value ->
-            val invalid = (value as String).lines().map { it.trim() }.filter { it.isNotEmpty() && allowedHostPattern(it) == null }
+            val invalid = (value as String).lines()
+                .map { it.trim() }
+                .filter { it.isNotEmpty() && allowedHostPattern(it) == null }
             if (invalid.isNotEmpty()) toast(getString(R.string.allowed_hosts_invalid, invalid.joinToString(", ")))
             invalid.isEmpty()
         }

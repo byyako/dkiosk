@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">dKiosk Browser</string>
     <string name="save">Save</string>
     <string name="done">Done</string>
@@ -21,7 +21,7 @@
     <string name="pin_locked">Too many wrong PINs. Try again in %1$d s.</string>
     <string name="pin_new_hint">Settings PIN (4–12 digits)</string>
     <string name="pin_repeat_hint">Repeat PIN</string>
-    <string name="pin_invalid">Use %1$d to %2$d digits</string>
+    <string name="pin_invalid" tools:ignore="PluralsCandidate">Use %1$d to %2$d digits</string>
     <string name="pin_mismatch">The PINs don\'t match</string>
     <string name="pin_changed">PIN changed</string>
 

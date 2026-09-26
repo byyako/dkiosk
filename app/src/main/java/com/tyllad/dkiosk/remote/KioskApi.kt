@@ -1,11 +1,11 @@
 package com.tyllad.dkiosk.remote
 
 import com.tyllad.dkiosk.web.normalizeHomeUrl
+import org.json.JSONException
+import org.json.JSONObject
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
-import org.json.JSONException
-import org.json.JSONObject
 
 /** What the API can ask the kiosk to do. Implementations run each call on the main thread. */
 interface KioskControl {
@@ -55,7 +55,8 @@ class KioskApi(private val token: String, private val control: KioskControl) {
 
     private fun openUrl(request: HttpRequest): HttpResponse {
         val json = parse(request) ?: return HttpResponse.error(400, "Body must be a JSON object")
-        val url = normalizeHomeUrl(json.optString("url")) ?: return HttpResponse.error(400, "\"url\" must be an http(s) address")
+        val url = normalizeHomeUrl(json.optString("url"))
+            ?: return HttpResponse.error(400, "\"url\" must be an http(s) address")
         val problem = control.open(url, json.optBoolean("home", false))
         return if (problem == null) HttpResponse.ok() else HttpResponse.error(403, problem)
     }
