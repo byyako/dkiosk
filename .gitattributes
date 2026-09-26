@@ -1,6 +1,5 @@
-* text=auto
-# gradlew must keep LF or it won't run on Linux/macOS; .bat files need CRLF.
-gradlew text eol=lf
+# LF everywhere so the repo looks the same on every OS; .bat files need CRLF.
+* text=auto eol=lf
 *.bat text eol=crlf
 *.jar binary
 *.png binary
