@@ -67,6 +67,13 @@ class HttpRequestTest {
         read("GET / HTTP/1.1\r\nHost: x\r\n")
     }
 
+    @Test(expected = BadRequestException::class)
+    fun givesUpOnASlowClient() {
+        // Every read of the clock moves time on by a second, so the 10 s budget runs out mid-headers.
+        var now = 0L
+        HttpRequest.read("GET / HTTP/1.1\r\nHost: kiosk.lan\r\n\r\n".byteInputStream()) { now += 1_000; now }
+    }
+
     @Test
     fun writesAJsonResponse() {
         val out = ByteArrayOutputStream()

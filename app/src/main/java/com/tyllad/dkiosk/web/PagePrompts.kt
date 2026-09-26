@@ -37,16 +37,18 @@ class PagePrompts(
 
     fun onLoginRequest(host: String, realm: String, handler: HttpAuthHandler) {
         val saved = authStore.getHttpAuthUsernamePassword(host, realm)
+        val username = saved?.getOrNull(0)
+        val password = saved?.getOrNull(1)
         // useHttpAuthUsernamePassword() turns false once the server has rejected these credentials.
-        if (saved != null && handler.useHttpAuthUsernamePassword()) {
-            handler.proceed(saved[0], saved[1])
+        if (username != null && password != null && handler.useHttpAuthUsernamePassword()) {
+            handler.proceed(username, password)
             return
         }
         if (!policy().allowsHost(host)) {
             handler.cancel()
             return
         }
-        askForLogin(host, realm, saved?.getOrNull(0), handler)
+        askForLogin(host, realm, username, handler)
     }
 
     private fun askToTrust(host: String, fingerprint: String, handler: SslErrorHandler) {

@@ -22,7 +22,8 @@ class KioskWebViewClient(private val callbacks: Callbacks) : WebViewClient() {
     interface Callbacks {
         fun navigationPolicy(): NavigationPolicy
 
-        fun onNavigationBlocked(verdict: Verdict)
+        /** [pageLost] is true when there was no earlier page to go back to, so nothing is showing. */
+        fun onNavigationBlocked(verdict: Verdict, pageLost: Boolean)
 
         fun onPageStarted(url: String)
 
@@ -47,7 +48,7 @@ class KioskWebViewClient(private val callbacks: Callbacks) : WebViewClient() {
     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
         val verdict = callbacks.navigationPolicy().check(request.url.toString(), request.isForMainFrame)
         if (verdict == Verdict.Allow) return false
-        callbacks.onNavigationBlocked(verdict)
+        callbacks.onNavigationBlocked(verdict, pageLost = false)
         return true
     }
 
@@ -56,15 +57,18 @@ class KioskWebViewClient(private val callbacks: Callbacks) : WebViewClient() {
         val verdict = callbacks.navigationPolicy().check(url)
         if (verdict != Verdict.Allow) {
             view.stopLoading()
+            val canGoBack = view.canGoBack()
             // Going home instead could loop forever if the home page itself redirects somewhere blocked.
-            if (view.canGoBack()) view.goBack() else view.loadUrl("about:blank")
-            callbacks.onNavigationBlocked(verdict)
+            if (canGoBack) view.goBack() else view.loadUrl(BLANK)
+            callbacks.onNavigationBlocked(verdict, pageLost = !canGoBack)
             return
         }
         callbacks.onPageStarted(url)
     }
 
     override fun onPageFinished(view: WebView, url: String) {
+        // The blank page shown after a blocked redirect isn't a successful load.
+        if (url == BLANK) return
         val error = failure?.takeIf { isSamePage(failedUrl, url) }
         failedUrl = null
         failure = null
@@ -115,4 +119,8 @@ class KioskWebViewClient(private val callbacks: Callbacks) : WebViewClient() {
             // Before API 29 the raw certificate is only reachable through its saved-state bundle.
             SslCertificate.saveState(this).getByteArray("x509-certificate")
         }
+
+    private companion object {
+        const val BLANK = "about:blank"
+    }
 }

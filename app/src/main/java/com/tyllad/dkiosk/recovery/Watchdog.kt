@@ -7,8 +7,13 @@ import android.webkit.WebView
 /**
  * Checks every 30 seconds that the page's JavaScript still answers. A renderer stuck in an endless
  * loop never replies, and nothing else in WebView reports that when nobody is touching the screen.
+ * [isPaused] skips checks while the page is legitimately blocked, e.g. by an alert().
  */
-class Watchdog(private val webView: () -> WebView, private val onUnresponsive: () -> Unit) {
+class Watchdog(
+    private val webView: () -> WebView,
+    private val isPaused: () -> Boolean,
+    private val onUnresponsive: () -> Unit,
+) {
 
     private val handler = Handler(Looper.getMainLooper())
 
@@ -29,6 +34,10 @@ class Watchdog(private val webView: () -> WebView, private val onUnresponsive: (
     }
 
     private val ping: Runnable = Runnable {
+        if (isPaused()) {
+            handler.postDelayed(ping, INTERVAL_MS)
+            return@Runnable
+        }
         val id = ++pingId
         answered = false
         webView().evaluateJavascript("1") { if (id == pingId) answered = true }

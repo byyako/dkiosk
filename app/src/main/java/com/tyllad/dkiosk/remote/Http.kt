@@ -18,10 +18,19 @@ class HttpRequest(
     companion object {
         private const val MAX_HEAD_BYTES = 8 * 1024
         private const val MAX_BODY_BYTES = 16 * 1024
+        private const val MAX_READ_MS = 10_000L
 
-        /** Reads one request, throwing [BadRequestException] for anything malformed or oversized. */
-        fun read(input: InputStream): HttpRequest {
-            val lines = readHead(input).split("\r\n")
+        /**
+         * Reads one request, throwing [BadRequestException] for anything malformed, oversized or too slow
+         * (a client trickling in a byte at a time would otherwise tie up a worker for hours).
+         */
+        fun read(input: InputStream, clock: () -> Long = System::currentTimeMillis): HttpRequest {
+            val deadline = clock() + MAX_READ_MS
+            val checkTime = {
+                if (clock() > deadline) throw BadRequestException("Request took too long")
+            }
+
+            val lines = readHead(input, checkTime).split("\r\n")
             val requestLine = lines.first().split(" ")
             if (requestLine.size != 3 || !requestLine[2].startsWith("HTTP/")) {
                 throw BadRequestException("Malformed request line")
@@ -38,6 +47,7 @@ class HttpRequest(
             val body = ByteArray(length)
             var read = 0
             while (read < length) {
+                checkTime()
                 val count = input.read(body, read, length - read)
                 if (count < 0) throw BadRequestException("Body ended early")
                 read += count
@@ -48,10 +58,11 @@ class HttpRequest(
         }
 
         /** Everything up to the blank line that ends the headers. */
-        private fun readHead(input: InputStream): String {
+        private fun readHead(input: InputStream, checkTime: () -> Unit): String {
             val head = ByteArrayOutputStream()
             var matched = 0 // how much of "\r\n\r\n" has been seen
             while (matched < 4) {
+                checkTime()
                 val byte = input.read()
                 if (byte < 0) throw BadRequestException("Connection closed mid-request")
                 head.write(byte)

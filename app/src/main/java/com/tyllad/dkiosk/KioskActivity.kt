@@ -20,7 +20,6 @@ import android.view.WindowManager
 import android.webkit.CookieManager
 import android.webkit.HttpAuthHandler
 import android.webkit.SslErrorHandler
-import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
@@ -48,6 +47,7 @@ import com.tyllad.dkiosk.settings.SettingsActivity
 import com.tyllad.dkiosk.settings.TapSequence
 import com.tyllad.dkiosk.setup.SetupActivity
 import com.tyllad.dkiosk.web.CertificatePins
+import com.tyllad.dkiosk.web.KioskChromeClient
 import com.tyllad.dkiosk.web.KioskWebViewClient
 import com.tyllad.dkiosk.web.NavigationPolicy
 import com.tyllad.dkiosk.web.PagePrompts
@@ -65,6 +65,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     private lateinit var prefs: KioskPrefs
     private lateinit var webView: WebView
     private lateinit var prompts: PagePrompts
+    private lateinit var chromeClient: KioskChromeClient
     private lateinit var pinPrompt: PinPrompt
     private lateinit var errorScreen: ErrorScreen
     private lateinit var watchdog: Watchdog
@@ -77,6 +78,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     private val pageBackoff = Backoff()
     private val rendererBackoff = Backoff()
     private var lastRendererLossAt = 0L
+    private var loadingUrl: String? = null
     private var failedUrl: String? = null
     private var failure: String? = null
     private var loadedHomeUrl: String? = null
@@ -100,7 +102,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
 
     // The loading page stays underneath; if it does finish before the retry, onPageLoaded hides this.
     private val loadTimeout = Runnable {
-        onPageFailed(webView.url ?: homeUrl, getString(R.string.error_timeout))
+        onPageFailed(loadingUrl ?: homeUrl, getString(R.string.error_timeout))
     }
 
     private val periodicReload = object : Runnable {
@@ -110,7 +112,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
                 handler.postDelayed(this, 60_000)
                 return
             }
-            if (!errorScreen.isShowing) webView.reload()
+            if (!errorScreen.isShowing) reloadPage()
             scheduleReload()
         }
     }
@@ -135,8 +137,9 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         pinPrompt = PinPrompt(this, prefs)
         val certPins = CertificatePins(load = { prefs.trustedCerts }, save = { prefs.trustedCerts = it })
         prompts = PagePrompts(this, certPins, ::navigationPolicy, pinPrompt::ask)
-        errorScreen = ErrorScreen(binding.errorScreen) { webView.loadUrl(failedUrl ?: homeUrl) }
-        watchdog = Watchdog({ webView }, ::onPageUnresponsive)
+        chromeClient = KioskChromeClient(this)
+        errorScreen = ErrorScreen(binding.errorScreen) { load(failedUrl ?: homeUrl) }
+        watchdog = Watchdog({ webView }, { chromeClient.isDialogOpen }, ::onPageUnresponsive)
         idleTimer = IdleTimer(::onIdle)
         dimmer = ScreenDimmer(binding.blackout, window, prefs)
         pixelShift = PixelShift(binding.webContainer)
@@ -230,18 +233,24 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
 
     override fun navigationPolicy() = NavigationPolicy(homeUrl, prefs.allowedHosts, prefs.restrictNavigation)
 
-    override fun onNavigationBlocked(verdict: Verdict) {
+    override fun onNavigationBlocked(verdict: Verdict, pageLost: Boolean) {
         val message = when (verdict) {
             is Verdict.BlockedHost -> getString(R.string.blocked_host, verdict.host)
             is Verdict.BlockedScheme -> getString(R.string.blocked_scheme, verdict.scheme)
             Verdict.Allow -> return
         }
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+        if (pageLost) {
+            // Typically the home page redirected to a login on another site: say which one to allow.
+            val reason = if (verdict is Verdict.BlockedHost) getString(R.string.error_redirect_blocked, verdict.host) else message
+            onPageFailed(loadingUrl ?: homeUrl, reason)
+        } else {
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+        }
     }
 
     override fun onPageStarted(url: String) {
-        handler.removeCallbacks(loadTimeout)
-        handler.postDelayed(loadTimeout, LOAD_TIMEOUT_MS)
+        loadingUrl = url
+        restartLoadTimeout()
     }
 
     override fun onPageLoaded(url: String) {
@@ -293,7 +302,25 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
 
     private fun loadHome() {
         loadedHomeUrl = homeUrl
-        webView.loadUrl(homeUrl)
+        load(homeUrl)
+    }
+
+    /** Every load the kiosk starts itself is timed from the start, so a server that never answers is caught too. */
+    private fun load(url: String) {
+        loadingUrl = url
+        restartLoadTimeout()
+        webView.loadUrl(url)
+    }
+
+    private fun reloadPage() {
+        loadingUrl = webView.url
+        restartLoadTimeout()
+        webView.reload()
+    }
+
+    private fun restartLoadTimeout() {
+        handler.removeCallbacks(loadTimeout)
+        handler.postDelayed(loadTimeout, LOAD_TIMEOUT_MS)
     }
 
     private fun createWebView(): WebView {
@@ -329,7 +356,10 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
             setAcceptThirdPartyCookies(view, true)
         }
         view.webViewClient = KioskWebViewClient(this)
-        view.webChromeClient = WebChromeClient()
+        view.webChromeClient = chromeClient
+        view.setDownloadListener { _, _, _, _, _ ->
+            Toast.makeText(this, R.string.download_blocked, Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun applyWebSettings(view: WebView) {
@@ -348,7 +378,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
             loadHome()
         } else if (prefs.userAgent != appliedUserAgent) {
             // A new user agent only takes effect on the next load.
-            webView.reload()
+            reloadPage()
         }
         appliedUserAgent = prefs.userAgent
 
@@ -401,7 +431,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
                 .put("version", packageManager.getPackageInfo(packageName, 0).versionName)
         }
 
-        override fun reload() = onMainThread { webView.reload() }
+        override fun reload() = onMainThread { reloadPage() }
 
         override fun goHome() = onMainThread { loadHome() }
 
@@ -415,7 +445,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
                 }
                 !navigationPolicy().allowsHost(host) -> getString(R.string.blocked_host, host)
                 else -> {
-                    webView.loadUrl(url)
+                    load(url)
                     null
                 }
             }

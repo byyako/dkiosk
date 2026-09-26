@@ -48,7 +48,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
         setUpHomeScreen()
 
         onClick("api_token", ::showApiToken)
-        onClick("api_address") { findPreference<Preference>("api_address")?.summary?.let { copy(it.toString()) } }
+        onClick("api_address") { localIpAddress(requireContext())?.let { copy("http://$it:${prefs.apiPort}") } }
         onClick("change_pin", ::changePin)
         onClick("forget_certificates", ::forgetCertificates)
         onClick("clear_site_data", ::clearSiteData)

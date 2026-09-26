@@ -4,13 +4,17 @@ import android.util.Log
 import java.io.IOException
 import java.net.ServerSocket
 import java.net.Socket
-import java.util.concurrent.Executors
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
 /** Serves [KioskApi] on [port] on every network interface. Once stopped, make a new one to start again. */
 class ApiServer(val port: Int, private val api: KioskApi) {
 
-    private val workers = Executors.newFixedThreadPool(2)
+    // Two workers and a short queue: plenty for a few automations, and a flood can't pile up forever.
+    private val workers = ThreadPoolExecutor(2, 2, 0, TimeUnit.MILLISECONDS, ArrayBlockingQueue(16))
     private var socket: ServerSocket? = null
 
     /** Throws if the port can't be opened, e.g. because another app is using it. */
@@ -24,7 +28,11 @@ class ApiServer(val port: Int, private val api: KioskApi) {
                 } catch (_: IOException) {
                     break // closed by stop()
                 }
-                workers.execute { serve(client) }
+                try {
+                    workers.execute { serve(client) }
+                } catch (_: RejectedExecutionException) {
+                    client.close()
+                }
             }
         }
     }

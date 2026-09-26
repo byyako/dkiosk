@@ -47,6 +47,8 @@
     <string name="error_retrying">Trying again…</string>
     <string name="error_retry_now">Try now</string>
     <string name="error_timeout">The page took too long to load.</string>
+    <string name="error_redirect_blocked">It sent the kiosk to %1$s, which isn\'t an allowed site. Add it under Other allowed sites in the settings.</string>
+    <string name="download_blocked">Downloads aren\'t supported in the kiosk</string>
 
     <!-- Settings -->
     <string name="settings_title">Kiosk settings</string>
