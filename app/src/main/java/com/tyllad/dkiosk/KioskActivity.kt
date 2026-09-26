@@ -41,6 +41,7 @@ import com.tyllad.dkiosk.recovery.Watchdog
 import com.tyllad.dkiosk.remote.ApiServer
 import com.tyllad.dkiosk.remote.KioskApi
 import com.tyllad.dkiosk.remote.KioskControl
+import com.tyllad.dkiosk.screen.PixelShift
 import com.tyllad.dkiosk.screen.ScreenDimmer
 import com.tyllad.dkiosk.settings.PinPrompt
 import com.tyllad.dkiosk.settings.SettingsActivity
@@ -69,6 +70,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     private lateinit var watchdog: Watchdog
     private lateinit var idleTimer: IdleTimer
     private lateinit var dimmer: ScreenDimmer
+    private lateinit var pixelShift: PixelShift
 
     private val handler = Handler(Looper.getMainLooper())
     private val settingsTaps = TapSequence()
@@ -137,6 +139,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         watchdog = Watchdog({ webView }, ::onPageUnresponsive)
         idleTimer = IdleTimer(::onIdle)
         dimmer = ScreenDimmer(binding.blackout, window, prefs)
+        pixelShift = PixelShift(binding.webContainer)
         webView = createWebView()
         appliedUserAgent = prefs.userAgent
 
@@ -193,6 +196,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
             idleTimer.stop()
             watchdog.stop()
             dimmer.stop()
+            pixelShift.setEnabled(false)
             binding.webContainer.removeView(webView)
             webView.destroy()
         }
@@ -354,6 +358,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
         idleTimer.timeoutMs = prefs.idleHomeMinutes * 60_000L
+        pixelShift.setEnabled(prefs.burnInShift)
         scheduleReload()
         applyApiSettings()
     }

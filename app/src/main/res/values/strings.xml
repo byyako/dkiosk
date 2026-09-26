@@ -73,6 +73,8 @@
     <string name="settings_screen">Screen</string>
     <string name="keep_screen_on">Keep the screen on</string>
     <string name="keep_screen_on_summary">Otherwise Android\'s normal screen timeout applies</string>
+    <string name="burn_in_shift">Prevent burn-in</string>
+    <string name="burn_in_shift_summary">Moves the page a few pixels every two minutes. Useful for OLED screens showing a static dashboard all day.</string>
     <string name="schedule">Turn the screen off on a schedule</string>
     <string name="schedule_summary">The screen goes black and dims. A touch wakes it.</string>
     <string name="schedule_off">Off at</string>

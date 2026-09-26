@@ -52,6 +52,11 @@
             app:title="@string/keep_screen_on" />
         <SwitchPreferenceCompat
             app:defaultValue="false"
+            app:key="burn_in_shift"
+            app:summary="@string/burn_in_shift_summary"
+            app:title="@string/burn_in_shift" />
+        <SwitchPreferenceCompat
+            app:defaultValue="false"
             app:key="schedule_enabled"
             app:summary="@string/schedule_summary"
             app:title="@string/schedule" />

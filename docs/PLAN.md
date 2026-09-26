@@ -24,7 +24,7 @@ configured on first run.
 4. ✅ Admin panel — first-run setup (URL + PIN), 5 taps top-right + PIN (PBKDF2, lockout after 5 misses) opens the settings screen; trusting a certificate needs the PIN; optional home-screen mode via a disabled activity alias; sign out / forget certificates / change PIN / exit.
 5. ✅ Screen schedule — daily off period (overnight works) on chosen start days, black overlay + zero brightness, a touch wakes it for a set time without pressing anything on the page, remote on/off overrides until the schedule next switches.
 6. ✅ HTTP API — small built-in server (no dependency), bearer token, off by default: `GET /status`, `POST /reload`, `POST /home`, `POST /url {url, home}`, `POST /screen {state}`. Settings show the address and token.
-7. Polish / distribution — release signing (keystore outside repo), README, versioning, optional burn-in pixel shift.
+7. ✅ Polish / distribution — burn-in pixel shift, debug builds install side by side (`.debug`), release signing from a gitignored keystore.properties, R8 keep rules for XML-only classes, README with API and Home Assistant docs, MIT license, version 1.0.0.
 
 ## Test recipes
 - Test site: `python -u testsite/serve.py` (HTTP :8780, self-signed HTTPS :8781; `--new-cert` rotates the cert),
