@@ -1,12 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!-- Needed to check which app is the home app. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
+        </intent>
+    </queries>
+
     <!-- Saved logins (cookies) and kiosk settings never restore onto another device: allowBackup
-         + fullBackupContent cover Android 11 and lower, dataExtractionRules covers 12+. -->
+         and fullBackupContent cover Android 11 and lower, dataExtractionRules covers 12+. -->
     <application
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -18,11 +25,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.DKiosk">
 
-        <!-- configChanges keeps rotation/keyboard/theme changes from recreating the activity,
-             which would otherwise reload the page. -->
+        <!-- configChanges keeps rotation and keyboard changes from recreating the activity, which
+             would reload the page. A light/dark switch does recreate it, so pages get the new
+             prefers-color-scheme. -->
         <activity
             android:name=".KioskActivity"
-            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|density"
             android:exported="true"
             android:launchMode="singleTask"
             android:theme="@style/Theme.DKiosk.Kiosk"
@@ -32,6 +40,29 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Home-screen mode, off until it's turned on in the settings (see HomeApp). -->
+        <activity-alias
+            android:name=".HomeScreen"
+            android:enabled="false"
+            android:exported="true"
+            android:targetActivity=".KioskActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity
+            android:name=".setup.SetupActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".settings.SettingsActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
     </application>
 
 </manifest>

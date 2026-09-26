@@ -1,0 +1,33 @@
+<resources>
+    <string-array name="idle_home_entries">
+        <item>Never</item>
+        <item>After 1 minute</item>
+        <item>After 2 minutes</item>
+        <item>After 5 minutes</item>
+        <item>After 10 minutes</item>
+        <item>After 30 minutes</item>
+    </string-array>
+    <string-array name="idle_home_values" translatable="false">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>5</item>
+        <item>10</item>
+        <item>30</item>
+    </string-array>
+
+    <string-array name="reload_entries">
+        <item>Never</item>
+        <item>Every 15 minutes</item>
+        <item>Every hour</item>
+        <item>Every 6 hours</item>
+        <item>Once a day</item>
+    </string-array>
+    <string-array name="reload_values" translatable="false">
+        <item>0</item>
+        <item>15</item>
+        <item>60</item>
+        <item>360</item>
+        <item>1440</item>
+    </string-array>
+</resources>

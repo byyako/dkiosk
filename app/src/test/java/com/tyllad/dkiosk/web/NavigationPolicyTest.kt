@@ -110,7 +110,10 @@ class NavigationPolicyTest {
         assertEquals("sso.example.com", allowedHostPattern("https://sso.example.com:8443/login"))
         assertEquals("*.example.com", allowedHostPattern("*.example.com"))
         assertEquals("example.com", allowedHostPattern("example.com/path"))
+        assertEquals("[fe80::1]", allowedHostPattern("http://[FE80::1]:8123"))
         assertNull(allowedHostPattern(""))
         assertNull(allowedHostPattern("https://"))
+        assertNull(allowedHostPattern("not a host"))
+        assertNull(allowedHostPattern("exa!mple.com"))
     }
 }

@@ -1,0 +1,5 @@
+<resources>
+    <dimen name="dialog_padding">24dp</dimen>
+    <!-- Size of the top-right square where five quick taps open the settings. -->
+    <dimen name="settings_corner">80dp</dimen>
+</resources>

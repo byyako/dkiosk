@@ -1,7 +1,9 @@
 package com.tyllad.dkiosk
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.content.pm.ApplicationInfo
+import android.graphics.Color
 import android.net.ConnectivityManager
 import android.net.Network
 import android.os.Build
@@ -9,7 +11,6 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
-import android.text.InputType
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
@@ -20,11 +21,9 @@ import android.webkit.HttpAuthHandler
 import android.webkit.SslErrorHandler
 import android.webkit.WebChromeClient
 import android.webkit.WebView
-import android.widget.EditText
-import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
-import androidx.appcompat.app.AlertDialog
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -38,6 +37,10 @@ import com.tyllad.dkiosk.recovery.Backoff
 import com.tyllad.dkiosk.recovery.ErrorScreen
 import com.tyllad.dkiosk.recovery.IdleTimer
 import com.tyllad.dkiosk.recovery.Watchdog
+import com.tyllad.dkiosk.settings.PinPrompt
+import com.tyllad.dkiosk.settings.SettingsActivity
+import com.tyllad.dkiosk.settings.TapSequence
+import com.tyllad.dkiosk.setup.SetupActivity
 import com.tyllad.dkiosk.web.CertificatePins
 import com.tyllad.dkiosk.web.KioskWebViewClient
 import com.tyllad.dkiosk.web.NavigationPolicy
@@ -45,7 +48,6 @@ import com.tyllad.dkiosk.web.PagePrompts
 import com.tyllad.dkiosk.web.Verdict
 import com.tyllad.dkiosk.web.hostOf
 import com.tyllad.dkiosk.web.isSamePage
-import com.tyllad.dkiosk.web.normalizeHomeUrl
 
 class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
 
@@ -53,19 +55,26 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     private lateinit var prefs: KioskPrefs
     private lateinit var webView: WebView
     private lateinit var prompts: PagePrompts
+    private lateinit var pinPrompt: PinPrompt
     private lateinit var errorScreen: ErrorScreen
     private lateinit var watchdog: Watchdog
     private lateinit var idleTimer: IdleTimer
 
     private val handler = Handler(Looper.getMainLooper())
+    private val settingsTaps = TapSequence()
     private val pageBackoff = Backoff()
     private val rendererBackoff = Backoff()
     private var lastRendererLossAt = 0L
     private var failedUrl: String? = null
+    private var loadedHomeUrl: String? = null
     private var appliedUserAgent: String? = null
 
     private val homeUrl: String
         get() = prefs.homeUrl.orEmpty()
+
+    private val openSettings = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.data?.getBooleanExtra(SettingsActivity.EXTRA_RELOAD, false) == true) loadHome()
+    }
 
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
@@ -93,6 +102,12 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prefs = KioskPrefs(this)
+        if (!prefs.isSetUp) {
+            startActivity(Intent(this, SetupActivity::class.java))
+            finish()
+            return
+        }
+
         binding = ActivityKioskBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -101,12 +116,14 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
             WebView.setWebContentsDebuggingEnabled(true)
         }
 
+        pinPrompt = PinPrompt(this, prefs)
         val certPins = CertificatePins(load = { prefs.trustedCerts }, save = { prefs.trustedCerts = it })
-        prompts = PagePrompts(this, certPins, ::navigationPolicy)
+        prompts = PagePrompts(this, certPins, ::navigationPolicy, pinPrompt::ask)
         errorScreen = ErrorScreen(binding.errorScreen) { webView.loadUrl(failedUrl ?: homeUrl) }
         watchdog = Watchdog({ webView }, ::onPageUnresponsive)
         idleTimer = IdleTimer(::onIdle)
         webView = createWebView()
+        appliedUserAgent = prefs.userAgent
 
         padForKeyboard(binding.root)
         enterImmersiveMode()
@@ -117,8 +134,14 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
             }
         })
 
+        loadHome()
         applySettings()
-        if (prefs.homeUrl == null) promptForHomeUrl() else loadHome()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // In home-screen mode the Home button lands here: treat it as "back to the home page".
+        if (intent.hasCategory(Intent.CATEGORY_HOME)) loadHome()
     }
 
     override fun onStart() {
@@ -148,9 +171,12 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
-        idleTimer.stop()
-        binding.webContainer.removeView(webView)
-        webView.destroy()
+        if (::webView.isInitialized) {
+            idleTimer.stop()
+            watchdog.stop()
+            binding.webContainer.removeView(webView)
+            webView.destroy()
+        }
         super.onDestroy()
     }
 
@@ -161,7 +187,15 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-        if (event.actionMasked == MotionEvent.ACTION_DOWN) idleTimer.onTouch()
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+            idleTimer.onTouch()
+            val corner = resources.getDimension(R.dimen.settings_corner)
+            val inCorner = event.x > binding.root.width - corner && event.y < corner
+            if (inCorner && settingsTaps.onTap(event.eventTime)) {
+                pinPrompt.ask({ openSettings.launch(Intent(this, SettingsActivity::class.java)) })
+            }
+        }
+        // The taps still reach the page, so buttons in that corner keep working.
         return super.dispatchTouchEvent(event)
     }
 
@@ -229,7 +263,8 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     // WebView
 
     private fun loadHome() {
-        if (homeUrl.isNotEmpty()) webView.loadUrl(homeUrl)
+        loadedHomeUrl = homeUrl
+        webView.loadUrl(homeUrl)
     }
 
     private fun createWebView(): WebView {
@@ -250,7 +285,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun configureWebView(view: WebView) {
-        view.setBackgroundColor(android.graphics.Color.BLACK)
+        view.setBackgroundColor(Color.BLACK)
         view.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -280,11 +315,13 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
 
     private fun applySettings() {
         applyWebSettings(webView)
-        if (prefs.userAgent != appliedUserAgent) {
-            // The new user agent only takes effect on the next load.
-            if (webView.url != null) webView.reload()
-            appliedUserAgent = prefs.userAgent
+        if (prefs.homeUrl != loadedHomeUrl) {
+            loadHome()
+        } else if (prefs.userAgent != appliedUserAgent) {
+            // A new user agent only takes effect on the next load.
+            webView.reload()
         }
+        appliedUserAgent = prefs.userAgent
 
         if (prefs.keepScreenOn) {
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -325,43 +362,6 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
             view.updatePadding(bottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom)
             insets
         }
-    }
-
-    private fun promptForHomeUrl() {
-        val input = EditText(this).apply {
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
-            setHint(R.string.setup_url_hint)
-            setText(R.string.setup_url_prefix)
-            setSelection(text.length)
-        }
-        val padding = (20 * resources.displayMetrics.density).toInt()
-        val container = FrameLayout(this).apply {
-            setPadding(padding, padding / 2, padding, 0)
-            addView(input)
-        }
-
-        val dialog = AlertDialog.Builder(this)
-            .setTitle(R.string.setup_title)
-            .setMessage(R.string.setup_message)
-            .setView(container)
-            .setCancelable(false)
-            .setPositiveButton(R.string.setup_save, null)
-            .create()
-
-        // Wire the button after show() so an invalid URL keeps the dialog open.
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val url = normalizeHomeUrl(input.text.toString())
-                if (url == null) {
-                    input.error = getString(R.string.setup_invalid_url)
-                    return@setOnClickListener
-                }
-                prefs.homeUrl = url
-                dialog.dismiss()
-                loadHome()
-            }
-        }
-        dialog.show()
     }
 
     private companion object {

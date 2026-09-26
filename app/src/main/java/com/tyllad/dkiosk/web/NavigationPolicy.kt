@@ -60,5 +60,12 @@ fun allowedHostPattern(entry: String): String? {
     val rest = trimmed.removePrefix("*.")
     val host = hostOf(if ("://" in rest) rest else "https://$rest") ?: return null
     val canonical = canonicalHost(host).ifEmpty { return null }
+    if (!isHostName(canonical)) return null
     return if (wildcard) "*.$canonical" else canonical
+}
+
+/** Letters, digits, dots, hyphens and underscores, or a bracketed IPv6 address. */
+private fun isHostName(host: String): Boolean {
+    if (host.startsWith("[")) return host.endsWith("]") && host.drop(1).dropLast(1).all { it.isLetterOrDigit() || it in ":." }
+    return host.all { it.isLetterOrDigit() || it in ".-_" }
 }

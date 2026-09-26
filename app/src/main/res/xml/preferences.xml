@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Defaults here must match the fallbacks in KioskPrefs. -->
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory app:title="@string/settings_page">
+        <EditTextPreference
+            app:key="home_url"
+            app:title="@string/home_url"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:dialogMessage="@string/allowed_hosts_help"
+            app:key="allowed_hosts"
+            app:title="@string/allowed_hosts" />
+        <SwitchPreferenceCompat
+            app:defaultValue="true"
+            app:key="restrict_navigation"
+            app:summaryOff="@string/restrict_navigation_off"
+            app:summaryOn="@string/restrict_navigation_on"
+            app:title="@string/restrict_navigation" />
+        <SwitchPreferenceCompat
+            app:defaultValue="false"
+            app:key="allow_zoom"
+            app:title="@string/allow_zoom" />
+        <EditTextPreference
+            app:dialogMessage="@string/user_agent_help"
+            app:key="user_agent"
+            app:title="@string/user_agent" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/settings_recovery">
+        <ListPreference
+            app:defaultValue="5"
+            app:entries="@array/idle_home_entries"
+            app:entryValues="@array/idle_home_values"
+            app:key="idle_home_minutes"
+            app:title="@string/idle_home"
+            app:useSimpleSummaryProvider="true" />
+        <ListPreference
+            app:defaultValue="0"
+            app:entries="@array/reload_entries"
+            app:entryValues="@array/reload_values"
+            app:key="reload_minutes"
+            app:title="@string/reload"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/settings_screen">
+        <SwitchPreferenceCompat
+            app:defaultValue="true"
+            app:key="keep_screen_on"
+            app:summary="@string/keep_screen_on_summary"
+            app:title="@string/keep_screen_on" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/settings_security">
+        <Preference
+            app:key="change_pin"
+            app:title="@string/change_pin" />
+        <Preference
+            app:key="forget_certificates"
+            app:summary="@string/forget_certificates_summary"
+            app:title="@string/forget_certificates" />
+        <Preference
+            app:key="clear_site_data"
+            app:summary="@string/clear_site_data_summary"
+            app:title="@string/clear_site_data" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/settings_home_screen">
+        <SwitchPreferenceCompat
+            app:key="home_screen"
+            app:persistent="false"
+            app:summary="@string/home_screen_summary"
+            app:title="@string/home_screen" />
+        <Preference
+            app:dependency="home_screen"
+            app:key="choose_home_app"
+            app:title="@string/choose_home_app" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/settings_app">
+        <Preference
+            app:key="exit"
+            app:title="@string/exit" />
+        <Preference
+            app:key="version"
+            app:selectable="false"
+            app:title="@string/version" />
+    </PreferenceCategory>
+</PreferenceScreen>

@@ -1,18 +1,36 @@
 <resources>
     <string name="app_name">dKiosk Browser</string>
+    <string name="save">Save</string>
+    <string name="done">Done</string>
 
-    <string name="setup_title">Set up dKiosk</string>
-    <string name="setup_message">Enter the page this kiosk should display.</string>
+    <!-- First run -->
+    <string name="setup_title">Welcome to dKiosk</string>
+    <string name="setup_intro">Choose the page to show and a PIN for the settings. To change anything later, tap the top-right corner of the screen five times and enter the PIN.</string>
+    <string name="setup_url_label">Page address</string>
     <string name="setup_url_hint">https://example.com</string>
     <string name="setup_url_prefix" translatable="false">https://</string>
-    <string name="setup_save">Start kiosk</string>
     <string name="setup_invalid_url">Enter an http:// or https:// address</string>
+    <string name="setup_pin_note">Forgot the PIN? Clear dKiosk\'s storage in Android\'s app settings to start over. That also signs you out of the page.</string>
+    <string name="setup_start">Start kiosk</string>
 
+    <!-- PIN -->
+    <string name="pin_title">Enter PIN</string>
+    <string name="pin_hint">PIN</string>
+    <string name="pin_unlock">Unlock</string>
+    <string name="pin_wrong">Wrong PIN</string>
+    <string name="pin_locked">Too many wrong PINs. Try again in %1$d s.</string>
+    <string name="pin_new_hint">Settings PIN (4–12 digits)</string>
+    <string name="pin_repeat_hint">Repeat PIN</string>
+    <string name="pin_invalid">Use %1$d to %2$d digits</string>
+    <string name="pin_mismatch">The PINs don\'t match</string>
+    <string name="pin_changed">PIN changed</string>
+
+    <!-- Page -->
     <string name="blocked_host">Blocked: %1$s isn\'t an allowed site</string>
     <string name="blocked_scheme">Blocked: %1$s: links can\'t open in the kiosk</string>
 
     <string name="cert_untrusted_title">Untrusted certificate</string>
-    <string name="cert_untrusted_message">%1$s uses a certificate Android doesn\'t trust, such as a self-signed one.\n\nSHA-256 fingerprint:\n%2$s\n\nOnly trust it if this is your own server and the fingerprint matches.</string>
+    <string name="cert_untrusted_message">%1$s uses a certificate Android doesn\'t trust, such as a self-signed one.\n\nSHA-256 fingerprint:\n%2$s\n\nOnly trust it if this is your own server and the fingerprint matches. You\'ll need the PIN.</string>
     <string name="cert_changed_title">Certificate changed</string>
     <string name="cert_changed_message">The certificate for %1$s is different from the one trusted before. That\'s expected if the server got a new certificate, but it can also mean someone is intercepting the connection.\n\nNew SHA-256 fingerprint:\n%2$s</string>
     <string name="cert_trust">Trust</string>
@@ -29,4 +47,52 @@
     <string name="error_retrying">Trying again…</string>
     <string name="error_retry_now">Try now</string>
     <string name="error_timeout">The page took too long to load.</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Kiosk settings</string>
+    <string name="settings_close">Back to the kiosk</string>
+
+    <string name="settings_page">Page</string>
+    <string name="home_url">Home page</string>
+    <string name="allowed_hosts">Other allowed sites</string>
+    <string name="allowed_hosts_help">One per line, for example auth.example.com. Use *.example.com for a domain and all its subdomains.</string>
+    <string name="allowed_hosts_none">None</string>
+    <string name="allowed_hosts_invalid">Not a site: %1$s</string>
+    <string name="restrict_navigation">Stay on these sites</string>
+    <string name="restrict_navigation_on">Links to other sites are blocked</string>
+    <string name="restrict_navigation_off">Any site can be opened</string>
+    <string name="allow_zoom">Allow pinch to zoom</string>
+    <string name="user_agent">User agent</string>
+    <string name="user_agent_help">Leave empty to use the normal one. Some sites show a desktop layout for a desktop browser\'s user agent.</string>
+    <string name="user_agent_default">Default</string>
+
+    <string name="settings_recovery">Recovery</string>
+    <string name="idle_home">Go back to the home page</string>
+    <string name="reload">Reload the page</string>
+
+    <string name="settings_screen">Screen</string>
+    <string name="keep_screen_on">Keep the screen on</string>
+    <string name="keep_screen_on_summary">Otherwise Android\'s normal screen timeout applies</string>
+
+    <string name="settings_security">Security</string>
+    <string name="change_pin">Change PIN</string>
+    <string name="forget_certificates">Forget trusted certificates</string>
+    <string name="forget_certificates_summary">Self-signed certificates will have to be approved again</string>
+    <string name="forget_certificates_confirm">Every self-signed certificate you trusted will need to be approved again.</string>
+    <string name="clear_site_data">Sign out of everything</string>
+    <string name="clear_site_data_summary">Clears cookies, site storage and saved passwords</string>
+    <string name="clear_site_data_confirm">The page will have to be signed in to again.</string>
+
+    <string name="settings_home_screen">Home screen</string>
+    <string name="home_screen">Use as home screen</string>
+    <string name="home_screen_summary">Opens dKiosk after a restart and when Home is pressed</string>
+    <string name="choose_home_app">Choose the home app</string>
+    <string name="home_app_is_default">dKiosk is the home app</string>
+    <string name="home_app_not_default">Another app is the home app. Tap to pick dKiosk Browser.</string>
+    <string name="home_app_pick">Pick dKiosk Browser as the home app</string>
+
+    <string name="settings_app">App</string>
+    <string name="exit">Exit kiosk</string>
+    <string name="exit_pick_home_app">dKiosk is the home app. Pick another one to leave the kiosk.</string>
+    <string name="version">Version</string>
 </resources>

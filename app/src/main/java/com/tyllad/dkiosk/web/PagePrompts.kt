@@ -8,6 +8,7 @@ import android.webkit.WebViewDatabase
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.tyllad.dkiosk.R
 import com.tyllad.dkiosk.databinding.DialogLoginBinding
+import com.tyllad.dkiosk.ui.panForKeyboard
 
 /**
  * Dialogs a page can trigger: trusting a self-signed certificate and HTTP basic auth logins.
@@ -17,6 +18,7 @@ class PagePrompts(
     private val activity: Activity,
     private val certPins: CertificatePins,
     private val policy: () -> NavigationPolicy,
+    private val askForPin: (onSuccess: () -> Unit, onCancel: () -> Unit) -> Unit,
 ) {
     // Several requests can hit the same certificate or login at once; they share one dialog.
     private val pendingCerts = mutableMapOf<String, MutableList<SslErrorHandler>>()
@@ -63,8 +65,14 @@ class PagePrompts(
             )
             .setCancelable(false)
             .setPositiveButton(R.string.cert_trust) { _, _ ->
-                certPins.pin(host, fingerprint)
-                pendingCerts.remove(key)?.forEach { it.proceed() }
+                // Trusting a certificate is an admin decision, not something a passer-by should do.
+                askForPin(
+                    {
+                        certPins.pin(host, fingerprint)
+                        pendingCerts.remove(key)?.forEach { it.proceed() }
+                    },
+                    { pendingCerts.remove(key)?.forEach { it.cancel() } },
+                )
             }
             .setNegativeButton(android.R.string.cancel) { _, _ ->
                 pendingCerts.remove(key)?.forEach { it.cancel() }
@@ -98,6 +106,8 @@ class PagePrompts(
             .setNegativeButton(android.R.string.cancel) { _, _ ->
                 pendingLogins.remove(key)?.forEach { it.cancel() }
             }
+            .create()
+            .apply { panForKeyboard() }
             .show()
     }
 
