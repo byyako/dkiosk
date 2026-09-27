@@ -60,12 +60,12 @@
             app:key="schedule_enabled"
             app:summary="@string/schedule_summary"
             app:title="@string/schedule" />
-        <com.tyllad.dkiosk.settings.TimePreference
+        <com.byyako.dkiosk.settings.TimePreference
             app:defaultValue="22:00"
             app:dependency="schedule_enabled"
             app:key="schedule_off"
             app:title="@string/schedule_off" />
-        <com.tyllad.dkiosk.settings.TimePreference
+        <com.byyako.dkiosk.settings.TimePreference
             app:defaultValue="07:00"
             app:dependency="schedule_enabled"
             app:key="schedule_on"

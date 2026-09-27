@@ -6,7 +6,7 @@ setup and settings screens. Design decisions and their reasons are in [DESIGN.md
 ## Layout
 
 ```
-app/src/main/java/com/tyllad/dkiosk/
+app/src/main/java/com/byyako/dkiosk/
   KioskActivity.kt      the kiosk: WebView, immersive mode, wiring for everything below
   config/               KioskPrefs, every setting in one place
   web/                  navigation rules, certificate pins, login and certificate prompts, WebViewClient
@@ -30,10 +30,10 @@ Point `local.properties` at the SDK (`sdk.dir=...`) or set `ANDROID_HOME`.
 ```sh
 ./gradlew assembleDebug testDebugUnitTest lintDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n com.tyllad.dkiosk.debug/com.tyllad.dkiosk.KioskActivity
+adb shell am start -n com.byyako.dkiosk.debug/com.byyako.dkiosk.KioskActivity
 ```
 
-Debug builds use the application ID `com.tyllad.dkiosk.debug`, so they install next to a release
+Debug builds use the application ID `com.byyako.dkiosk.debug`, so they install next to a release
 build. Versions live in `gradle/libs.versions.toml`. AGP 9 compiles Kotlin itself, so don't add the
 `org.jetbrains.kotlin.android` plugin.
 
@@ -87,7 +87,7 @@ Then use `http://localhost:8780/` as the home page.
 Debug builds allow WebView debugging, so the page can be scripted over the DevTools protocol:
 
 ```sh
-adb forward tcp:9222 localabstract:webview_devtools_remote_$(adb shell pidof com.tyllad.dkiosk.debug)
+adb forward tcp:9222 localabstract:webview_devtools_remote_$(adb shell pidof com.byyako.dkiosk.debug)
 node testsite/cdp.mjs "location.href"
 node testsite/cdp.mjs "document.getElementById('tel').click()"
 ```
@@ -107,7 +107,7 @@ node testsite/cdp.mjs "document.getElementById('tel').click()"
 | Frozen page | `node testsite/cdp.mjs --timeout 2000 "setTimeout(() => { while (true) {} }, 100)"`, recovers within about 45 s |
 | Network loss | `adb shell svc wifi disable`, then `enable` |
 | API | `adb forward tcp:8765 tcp:8765`, then `curl -H "Authorization: Bearer $TOKEN" localhost:8765/status`; `POST /url` with `"home": true` is the quickest way to switch the home page |
-| First run again | `adb shell pm clear com.tyllad.dkiosk.debug` |
+| First run again | `adb shell pm clear com.byyako.dkiosk.debug` |
 
 Settings can be written directly in debug builds with
-`adb shell run-as com.tyllad.dkiosk.debug` (file `shared_prefs/kiosk.xml`) to skip the UI.
+`adb shell run-as com.byyako.dkiosk.debug` (file `shared_prefs/kiosk.xml`) to skip the UI.

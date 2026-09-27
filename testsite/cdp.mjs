@@ -1,6 +1,6 @@
 // Talks to dKiosk's WebView over the DevTools protocol (debug builds only).
 //
-//   adb forward tcp:9222 localabstract:webview_devtools_remote_$(adb shell pidof com.tyllad.dkiosk)
+//   adb forward tcp:9222 localabstract:webview_devtools_remote_$(adb shell pidof com.byyako.dkiosk.debug)
 //   node testsite/cdp.mjs "location.href"                     evaluate JS (with a user gesture)
 //   node testsite/cdp.mjs "document.getElementById('tel').click()"
 //   node testsite/cdp.mjs --method Page.crash                 send any protocol method

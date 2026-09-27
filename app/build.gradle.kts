@@ -12,13 +12,13 @@ val keystoreProperties = Properties().apply {
 }
 
 android {
-    namespace = "com.tyllad.dkiosk"
+    namespace = "com.byyako.dkiosk"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.tyllad.dkiosk"
+        applicationId = "com.byyako.dkiosk"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
