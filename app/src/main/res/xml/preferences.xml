@@ -141,6 +141,10 @@
             app:key="exit"
             app:title="@string/exit" />
         <Preference
+            app:key="support"
+            app:summary="@string/support_summary"
+            app:title="@string/support" />
+        <Preference
             app:key="version"
             app:selectable="false"
             app:title="@string/version" />

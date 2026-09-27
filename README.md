@@ -27,9 +27,18 @@ It runs on an ordinary phone or tablet with Android 8.0 or newer. No root, no de
 
 ## Install
 
-1. Download the latest APK from the Releases page.
+1. Download the latest `dkiosk-<version>.apk` from the
+   [Releases page](https://github.com/byyako/dkiosk/releases/latest).
 2. Open it on the device. Android will ask you to allow installs from your browser or file manager.
 3. Open dKiosk, enter the page address and choose a settings PIN.
+
+**Updating:** install the new APK over the old one; settings and sign-ins are kept. dKiosk doesn't
+update itself, but [Obtainium](https://github.com/ImranR98/Obtainium) can watch the Releases page
+for you.
+
+The APK is signed with a certificate whose SHA-256 fingerprint is
+`d15215450edf0be53dc610833fa0bad88e77f89573aaa3babf40d22d8cc51313`. An APK signed with anything else
+didn't come from here.
 
 ## Using it
 
@@ -121,6 +130,12 @@ You need JDK 17 and the Android SDK (platform 37, build tools 36). Then:
 Debug builds install as a separate app ("dKiosk (debug)") next to the release build. See
 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for release signing, the local test site and on-device
 testing, and [docs/DESIGN.md](docs/DESIGN.md) for the design notes.
+
+## Support
+
+dKiosk is free. If it's useful to you, you can [buy me a coffee](https://buymeacoffee.com/tylernol).
+Bug reports and ideas are welcome in [Issues](https://github.com/byyako/dkiosk/issues); security
+problems go through [SECURITY.md](SECURITY.md).
 
 ## License
 

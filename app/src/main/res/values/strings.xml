@@ -124,5 +124,9 @@
     <string name="settings_app">App</string>
     <string name="exit">Exit kiosk</string>
     <string name="exit_pick_home_app">dKiosk is the home app. Pick another one to leave the kiosk.</string>
+    <string name="support">Support dKiosk</string>
+    <string name="support_summary">dKiosk is free. If it\'s useful to you, you can buy the developer a coffee.</string>
+    <string name="support_url" translatable="false">https://buymeacoffee.com/tylernol</string>
+    <string name="no_browser">No browser is installed to open %1$s</string>
     <string name="version">Version</string>
 </resources>

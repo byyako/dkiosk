@@ -1,6 +1,7 @@
 package com.byyako.dkiosk.settings
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
@@ -14,6 +15,7 @@ import android.webkit.WebViewDatabase
 import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AlertDialog
+import androidx.core.net.toUri
 import androidx.preference.EditTextPreference
 import androidx.preference.MultiSelectListPreference
 import androidx.preference.Preference
@@ -54,6 +56,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
         onClick("clear_site_data", ::clearSiteData)
         onClick("choose_home_app") { HomeApp.openHomeSettings(requireContext()) }
         onClick("exit", ::exitKiosk)
+        onClick("support") { openLink(getString(R.string.support_url)) }
 
         val context = requireContext()
         findPreference<Preference>("version")?.summary =
@@ -238,6 +241,14 @@ class SettingsFragment : PreferenceFragmentCompat() {
             HomeApp.openHomeSettings(requireContext())
         } else {
             requireActivity().finishAffinity()
+        }
+    }
+
+    private fun openLink(url: String) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
+        } catch (_: ActivityNotFoundException) {
+            toast(getString(R.string.no_browser, url))
         }
     }
 
