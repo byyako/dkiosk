@@ -19,11 +19,11 @@ its subdomains. Frames are not restricted, because dashboards embed charts, came
 other hosts. Non-web schemes (`tel:`, `intent:`, `market:`, `file:`...) are always blocked, even
 with the restriction turned off, since they would take the user out of the kiosk.
 
-`shouldOverrideUrlLoading` doesn't see form POSTs or redirects of `loadUrl()`, so `onPageStarted`
-checks every page again. When that check blocks the very first page (the home page redirected to a
-login on another host) there is nothing to go back to, so the error screen explains which host to
-allow instead of leaving a blank screen. It doesn't load the home page again, because that would
-loop.
+`shouldOverrideUrlLoading` doesn't see form POSTs, so `onPageStarted` checks every page again. When
+a load the kiosk started itself (the home page, a retry, a reload) ends up on a blocked host,
+typically because the home page redirected to a login on another site, the error screen explains
+which host to allow instead of leaving a blank or stale page. It retries with the usual backoff
+rather than loading the home page again straight away, which would loop.
 
 Host parsing is done by hand rather than with `java.net.URI`, which rejects URLs WebView accepts.
 
@@ -45,9 +45,15 @@ cookies, ends up on another device.
 A kiosk nobody watches has to get itself out of trouble:
 
 - Main-frame network errors, 5xx responses and loads that take over 60 seconds show an error screen
-  that retries with backoff (5 s doubling to 60 s), and right away when a network becomes available.
-  The timer starts when the kiosk starts a load, not only when the page commits, so a server that
-  accepts the connection and never answers is caught.
+  that retries with backoff (5 s doubling to 60 s), and right away when the network comes back.
+  (Registering for network changes reports the current network at once, so only a network that
+  returns after being lost counts.) The timer starts when the kiosk starts a load, not only when the
+  page commits, so a server that accepts the connection and never answers is caught.
+- WebView reports a load that was dropped before the server answered (replaced by a retry, or
+  blocked) through `onPageFinished`, the same as one that loaded. A finish only counts once a page
+  has started since the kiosk's last load; otherwise every retry would hide the error screen and
+  cancel its own timeout. Loading the current page with another `#fragment` starts no page, so it's
+  exempt.
 - Errors are matched to pages by URL in `onPageFinished`, because HTTP errors arrive before
   `onPageStarted`.
 - `onRenderProcessGone` replaces the WebView. Repeated crashes within a minute back off so a page

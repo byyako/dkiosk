@@ -79,6 +79,13 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     private val rendererBackoff = Backoff()
     private var lastRendererLossAt = 0L
     private var loadingUrl: String? = null
+
+    // A load the kiosk started itself (home, retry, reload, API) that hasn't reached a page yet.
+    private var kioskLoad: String? = null
+
+    // WebView reports a load that was dropped before the server answered (replaced by a retry, or
+    // blocked) as finished. Only a finish after a page has actually started counts as loaded.
+    private var pageStarted = false
     private var failedUrl: String? = null
     private var failure: String? = null
     private var loadedHomeUrl: String? = null
@@ -94,9 +101,18 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         if (result.data?.getBooleanExtra(SettingsActivity.EXTRA_RELOAD, false) == true) loadHome()
     }
 
+    // Registering the callback reports the network that's already up; only one that comes back counts.
+    @Volatile private var offline = false
+
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
+            if (!offline) return
+            offline = false
             runOnUiThread { if (errorScreen.isShowing) errorScreen.retryNow() }
+        }
+
+        override fun onLost(network: Network) {
+            offline = true
         }
     }
 
@@ -167,7 +183,9 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
 
     override fun onStart() {
         super.onStart()
-        getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(networkCallback)
+        val connectivity = getSystemService(ConnectivityManager::class.java)
+        offline = connectivity.activeNetwork == null
+        connectivity.registerDefaultNetworkCallback(networkCallback)
     }
 
     override fun onResume() {
@@ -233,30 +251,36 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
 
     override fun navigationPolicy() = NavigationPolicy(homeUrl, prefs.allowedHosts, prefs.restrictNavigation)
 
-    override fun onNavigationBlocked(verdict: Verdict, pageLost: Boolean) {
+    override fun onNavigationBlocked(verdict: Verdict, pageLost: Boolean): Boolean {
         val message = when (verdict) {
             is Verdict.BlockedHost -> getString(R.string.blocked_host, verdict.host)
             is Verdict.BlockedScheme -> getString(R.string.blocked_scheme, verdict.scheme)
-            Verdict.Allow -> return
+            Verdict.Allow -> return false
         }
-        if (pageLost) {
-            // Typically the home page redirected to a login on another site: say which one to allow.
-            val reason = when (verdict) {
-                is Verdict.BlockedHost -> getString(R.string.error_redirect_blocked, verdict.host)
-                else -> message
-            }
-            onPageFailed(loadingUrl ?: homeUrl, reason)
-        } else {
+        val failedLoad = kioskLoad
+        if (!pageLost && failedLoad == null) {
             Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+            return false
         }
+        // The kiosk's own load went somewhere it may not go, typically the home page redirecting to a
+        // login on another site: say which one to allow rather than leave a blank or stale page.
+        val reason = when (verdict) {
+            is Verdict.BlockedHost -> getString(R.string.error_redirect_blocked, verdict.host)
+            else -> message
+        }
+        onPageFailed(failedLoad ?: loadingUrl ?: homeUrl, reason)
+        return true
     }
 
     override fun onPageStarted(url: String) {
+        kioskLoad = null
+        pageStarted = true
         loadingUrl = url
         restartLoadTimeout()
     }
 
     override fun onPageLoaded(url: String) {
+        if (!pageStarted) return
         handler.removeCallbacks(loadTimeout)
         pageBackoff.reset()
         failedUrl = null
@@ -266,6 +290,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
 
     override fun onPageFailed(url: String, reason: String) {
         handler.removeCallbacks(loadTimeout)
+        kioskLoad = null
         failedUrl = url
         failure = reason
         errorScreen.show(hostOf(url) ?: url, reason, pageBackoff.nextDelayMs())
@@ -310,15 +335,24 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
 
     /** Every load the kiosk starts itself is timed from the start, so a server that never answers is caught too. */
     private fun load(url: String) {
-        loadingUrl = url
-        restartLoadTimeout()
+        // The current page with another #fragment just scrolls or switches a hash route: no new page
+        // starts, but its finish still counts.
+        val current = webView.copyBackForwardList().currentItem?.url
+        val sameDocument = '#' in url && current?.substringBefore('#') == url.substringBefore('#')
+        startKioskLoad(url, sameDocument)
         webView.loadUrl(url)
     }
 
     private fun reloadPage() {
-        loadingUrl = webView.url
-        restartLoadTimeout()
+        startKioskLoad(webView.url, sameDocument = false)
         webView.reload()
+    }
+
+    private fun startKioskLoad(url: String?, sameDocument: Boolean) {
+        kioskLoad = url.takeUnless { sameDocument }
+        pageStarted = sameDocument
+        loadingUrl = url
+        restartLoadTimeout()
     }
 
     private fun restartLoadTimeout() {

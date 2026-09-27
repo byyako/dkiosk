@@ -28,6 +28,12 @@
     <a id="fail" href="/503">HTTP 503</a>
     <form id="post" method="post" action="https://example.com/"><button>Off-site POST</button></form>
     <button id="jsnav" onclick="location.href = 'https://example.org/'">JS nav off-site</button>
+    <a id="hang" href="/hang">Never answers</a>
+    <a id="away" href="/away">Redirect off-site</a>
+    <a id="download" href="/download">Download</a>
+    <button id="alert" onclick="alert('Test alert')">alert()</button>
+    <button id="confirm" onclick="confirm('Test confirm')">confirm()</button>
+    <button id="unload" onclick="onbeforeunload = () => 'Leave?'; location.href = '/page2.html'">Leave with beforeunload</button>
   </div>
   <p>Off-site iframe (allowed: only top-level pages are restricted)</p>
   <iframe id="frame" src="https://example.com/"></iframe>

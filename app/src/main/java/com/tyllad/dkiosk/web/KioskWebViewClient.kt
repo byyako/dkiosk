@@ -22,8 +22,11 @@ class KioskWebViewClient(private val callbacks: Callbacks) : WebViewClient() {
     interface Callbacks {
         fun navigationPolicy(): NavigationPolicy
 
-        /** [pageLost] is true when there was no earlier page to go back to, so nothing is showing. */
-        fun onNavigationBlocked(verdict: Verdict, pageLost: Boolean)
+        /**
+         * [pageLost] is true when there was no earlier page to go back to, so nothing is showing.
+         * Returns true if an error screen now covers the page, so there's no need to go back.
+         */
+        fun onNavigationBlocked(verdict: Verdict, pageLost: Boolean): Boolean
 
         fun onPageStarted(url: String)
 
@@ -58,11 +61,13 @@ class KioskWebViewClient(private val callbacks: Callbacks) : WebViewClient() {
         if (verdict != Verdict.Allow) {
             view.stopLoading()
             val canGoBack = view.canGoBack()
+            val covered = callbacks.onNavigationBlocked(verdict, pageLost = !canGoBack)
             // Going home instead could loop forever if the home page itself redirects somewhere blocked.
-            if (canGoBack) view.goBack() else view.loadUrl(BLANK)
-            callbacks.onNavigationBlocked(verdict, pageLost = !canGoBack)
+            if (canGoBack && !covered) view.goBack() else view.loadUrl(BLANK)
             return
         }
+        // The blank page that replaces a blocked one isn't a page load.
+        if (url == BLANK) return
         callbacks.onPageStarted(url)
     }
 

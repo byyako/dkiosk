@@ -12,6 +12,8 @@ then use http://localhost:8780/ as the kiosk's home URL.
     python testsite/serve.py --new-cert   # new cert, to test the "certificate changed" prompt
 
 /private/ needs HTTP basic auth (user "kiosk", password "letmein") and /503 always fails with a 503.
+/hang accepts the connection and never answers, /away redirects to 127.0.0.1 (another host as far as
+the kiosk is concerned) and /download is sent as a file attachment.
 """
 
 import base64
@@ -21,6 +23,7 @@ import ssl
 import subprocess
 import sys
 import threading
+import time
 
 HERE = pathlib.Path(__file__).resolve().parent
 WWW = HERE / "www"
@@ -59,6 +62,21 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/503":
             self.send_error(503, "Service Unavailable")
+        elif self.path == "/hang":
+            time.sleep(300)
+        elif self.path == "/away":
+            self.send_response(302)
+            self.send_header("Location", f"http://127.0.0.1:{HTTP_PORT}/")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+        elif self.path == "/download":
+            body = b"dKiosk test download\n"
+            self.send_response(200)
+            self.send_header("Content-Type", "application/octet-stream")
+            self.send_header("Content-Disposition", 'attachment; filename="test.txt"')
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
         elif self.path.startswith("/private/") and not self.authorized():
             self.send_response(401)
             self.send_header("WWW-Authenticate", 'Basic realm="dKiosk test"')

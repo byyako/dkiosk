@@ -69,8 +69,9 @@ To publish: bump `versionCode` and `versionName` in `app/build.gradle.kts`, buil
 ### Local test site
 
 `testsite/serve.py` serves test pages over plain HTTP on port 8780 and self-signed HTTPS on 8781:
-links of every kind, a basic auth area (`/private/`, user `kiosk`, password `letmein`) and a page
-that always fails (`/503`). `adb reverse` makes them reachable from a USB-connected phone without
+links of every kind, a basic auth area (`/private/`, user `kiosk`, password `letmein`), a page that
+always fails (`/503`), one that never answers (`/hang`), a redirect to another host (`/away`), a
+download and page dialogs. `adb reverse` makes them reachable from a USB-connected phone without
 touching any firewall:
 
 ```sh
@@ -99,10 +100,13 @@ node testsite/cdp.mjs "document.getElementById('tel').click()"
 | Self-signed certificate | Open "Self-signed HTTPS"; restart the server with `--new-cert` to see the "changed" warning |
 | Server down | Point the home page at a port nothing listens on; the error screen should count down and retry |
 | 5xx | Open "HTTP 503" |
+| Server that never answers | Make `http://localhost:8780/hang` the home page; the error screen appears after 60 s and keeps retrying |
+| Home page redirected off-site | Make `http://localhost:8780/away` the home page; the error screen says to allow 127.0.0.1 |
+| Page dialogs | "alert()" closes itself after a minute; "Leave with beforeunload" leaves without asking |
 | Renderer crash | `node testsite/cdp.mjs --method Page.crash` |
 | Frozen page | `node testsite/cdp.mjs --timeout 2000 "setTimeout(() => { while (true) {} }, 100)"`, recovers within about 45 s |
 | Network loss | `adb shell svc wifi disable`, then `enable` |
-| API | `adb forward tcp:8765 tcp:8765`, then `curl -H "Authorization: Bearer $TOKEN" localhost:8765/status` |
+| API | `adb forward tcp:8765 tcp:8765`, then `curl -H "Authorization: Bearer $TOKEN" localhost:8765/status`; `POST /url` with `"home": true` is the quickest way to switch the home page |
 | First run again | `adb shell pm clear com.tyllad.dkiosk.debug` |
 
 Settings can be written directly in debug builds with
