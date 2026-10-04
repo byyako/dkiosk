@@ -17,7 +17,10 @@ import android.webkit.WebViewClient
  * Enforces the [NavigationPolicy], reports whether each top-level page loaded or failed, and hands
  * certificate and login prompts to the activity.
  */
-class KioskWebViewClient(private val callbacks: Callbacks) : WebViewClient() {
+class KioskWebViewClient(
+    private val callbacks: Callbacks,
+    private val isCurrent: (WebView) -> Boolean = { true },
+) : WebViewClient() {
 
     interface Callbacks {
         fun navigationPolicy(): NavigationPolicy
@@ -49,6 +52,7 @@ class KioskWebViewClient(private val callbacks: Callbacks) : WebViewClient() {
     private var failure: String? = null
 
     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+        if (!isCurrent(view)) return true
         val verdict = callbacks.navigationPolicy().check(request.url.toString(), request.isForMainFrame)
         if (verdict == Verdict.Allow) return false
         callbacks.onNavigationBlocked(verdict, pageLost = false)
@@ -56,6 +60,7 @@ class KioskWebViewClient(private val callbacks: Callbacks) : WebViewClient() {
     }
 
     override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
+        if (!isCurrent(view)) return
         // shouldOverrideUrlLoading never sees form POSTs or redirects of loadUrl(), so check again here.
         val verdict = callbacks.navigationPolicy().check(url)
         if (verdict != Verdict.Allow) {
@@ -68,26 +73,32 @@ class KioskWebViewClient(private val callbacks: Callbacks) : WebViewClient() {
         }
         // The blank page that replaces a blocked one isn't a page load.
         if (url == BLANK) return
+        if (!isSamePage(failedUrl, url)) {
+            failedUrl = null
+            failure = null
+        }
         callbacks.onPageStarted(url)
     }
 
     override fun onPageFinished(view: WebView, url: String) {
         // The blank page shown after a blocked redirect isn't a successful load.
-        if (url == BLANK) return
+        if (!isCurrent(view) || url == BLANK) return
         val error = failure?.takeIf { isSamePage(failedUrl, url) }
-        failedUrl = null
-        failure = null
+        if (error != null) {
+            failedUrl = null
+            failure = null
+        }
         if (error == null) callbacks.onPageLoaded(url) else callbacks.onPageFailed(url, error)
     }
 
     override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-        if (request.isForMainFrame) recordFailure(request, error.description.toString())
+        if (isCurrent(view) && request.isForMainFrame) recordFailure(request, error.description.toString())
     }
 
     override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
         // 5xx usually means the server is restarting or a proxy can't reach it, so it's worth retrying.
         // A 4xx is a real answer and the page is left as the server sent it.
-        if (request.isForMainFrame && response.statusCode >= 500) {
+        if (isCurrent(view) && request.isForMainFrame && response.statusCode >= 500) {
             recordFailure(request, "HTTP ${response.statusCode} ${response.reasonPhrase.orEmpty()}".trim())
         }
     }
@@ -98,6 +109,10 @@ class KioskWebViewClient(private val callbacks: Callbacks) : WebViewClient() {
     }
 
     override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
+        if (!isCurrent(view)) {
+            handler.cancel()
+            return
+        }
         val host = hostOf(error.url)
         val der = error.certificate.derBytes()
         if (host == null || der == null) {
@@ -108,11 +123,11 @@ class KioskWebViewClient(private val callbacks: Callbacks) : WebViewClient() {
     }
 
     override fun onReceivedHttpAuthRequest(view: WebView, handler: HttpAuthHandler, host: String, realm: String) {
-        callbacks.onLoginRequest(host, realm, handler)
+        if (isCurrent(view)) callbacks.onLoginRequest(host, realm, handler) else handler.cancel()
     }
 
     override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
-        callbacks.onRendererGone(detail.didCrash())
+        if (isCurrent(view)) callbacks.onRendererGone(detail.didCrash())
         // Returning true keeps the app alive; the activity replaces this WebView, which is now unusable.
         return true
     }
