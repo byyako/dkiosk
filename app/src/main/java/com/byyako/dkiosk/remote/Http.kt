@@ -80,13 +80,20 @@ class HttpRequest(
     }
 }
 
-class HttpResponse(val status: Int, val body: JSONObject) {
+/** A JSON response, or with [payload] a binary one such as a screenshot. */
+class HttpResponse(
+    val status: Int,
+    val body: JSONObject,
+    private val payload: ByteArray? = null,
+    val contentType: String = JSON,
+) {
 
     fun write(output: OutputStream) {
-        val bytes = body.toString().toByteArray(Charsets.UTF_8)
+        val bytes = payload ?: body.toString().toByteArray(Charsets.UTF_8)
         val head = "HTTP/1.1 $status ${reason(status)}\r\n" +
-            "Content-Type: application/json; charset=utf-8\r\n" +
+            "Content-Type: $contentType\r\n" +
             "Content-Length: ${bytes.size}\r\n" +
+            "Cache-Control: no-store\r\n" +
             "Connection: close\r\n\r\n"
         output.write(head.toByteArray(Charsets.ISO_8859_1))
         output.write(bytes)
@@ -94,9 +101,13 @@ class HttpResponse(val status: Int, val body: JSONObject) {
     }
 
     companion object {
+        private const val JSON = "application/json; charset=utf-8"
+
         fun ok(body: JSONObject = JSONObject().put("ok", true)) = HttpResponse(200, body)
 
         fun error(status: Int, message: String) = HttpResponse(status, JSONObject().put("error", message))
+
+        fun jpeg(bytes: ByteArray) = HttpResponse(200, JSONObject(), bytes, "image/jpeg")
 
         private fun reason(status: Int) = when (status) {
             200 -> "OK"
@@ -105,6 +116,7 @@ class HttpResponse(val status: Int, val body: JSONObject) {
             403 -> "Forbidden"
             404 -> "Not Found"
             405 -> "Method Not Allowed"
+            503 -> "Service Unavailable"
             else -> "Internal Server Error"
         }
     }

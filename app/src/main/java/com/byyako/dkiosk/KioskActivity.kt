@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.graphics.Color
 import android.graphics.Rect
+import android.media.AudioManager
 import android.net.ConnectivityManager
 import android.net.Network
 import android.os.BatteryManager
@@ -32,11 +33,14 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.view.isVisible
 import androidx.core.view.updatePadding
 import androidx.lifecycle.Lifecycle
 import com.byyako.dkiosk.config.KioskPrefs
 import com.byyako.dkiosk.databinding.ActivityKioskBinding
 import com.byyako.dkiosk.lockdown.Lockdown
+import com.byyako.dkiosk.media.SoundPlayer
+import com.byyako.dkiosk.media.Speaker
 import com.byyako.dkiosk.recovery.Backoff
 import com.byyako.dkiosk.recovery.ErrorScreen
 import com.byyako.dkiosk.recovery.IdleTimer
@@ -46,6 +50,7 @@ import com.byyako.dkiosk.remote.KioskApi
 import com.byyako.dkiosk.remote.KioskControl
 import com.byyako.dkiosk.screen.PixelShift
 import com.byyako.dkiosk.screen.ScreenDimmer
+import com.byyako.dkiosk.screen.Screenshot
 import com.byyako.dkiosk.settings.PinPrompt
 import com.byyako.dkiosk.settings.HomeApp
 import com.byyako.dkiosk.settings.CornerTapGesture
@@ -56,6 +61,7 @@ import com.byyako.dkiosk.web.KioskChromeClient
 import com.byyako.dkiosk.web.KioskWebViewClient
 import com.byyako.dkiosk.web.NavigationPolicy
 import com.byyako.dkiosk.web.PagePrompts
+import com.byyako.dkiosk.web.TemporaryPage
 import com.byyako.dkiosk.web.Verdict
 import com.byyako.dkiosk.web.hostOf
 import com.byyako.dkiosk.web.isSamePage
@@ -64,6 +70,7 @@ import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.FutureTask
 import java.util.concurrent.TimeUnit
+import kotlin.math.roundToInt
 
 class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
 
@@ -78,6 +85,8 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     private lateinit var idleTimer: IdleTimer
     private lateinit var dimmer: ScreenDimmer
     private lateinit var pixelShift: PixelShift
+    private lateinit var speaker: Speaker
+    private val soundPlayer = SoundPlayer()
 
     private val handler = Handler(Looper.getMainLooper())
     private val cornerGesture by lazy { CornerTapGesture(ViewConfiguration.get(this).scaledTouchSlop.toFloat()) }
@@ -144,6 +153,23 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         onPageFailed(loadingUrl ?: homeUrl, getString(R.string.error_timeout))
     }
     private val rendererRetry = Runnable { loadHome() }
+    private val hideMessage = Runnable { binding.message.isVisible = false }
+
+    // A page the API opened for a while, such as a doorbell camera.
+    private var temporaryPage: TemporaryPage? = null
+    private val endTemporaryPage = object : Runnable {
+        override fun run() {
+            val page = temporaryPage ?: return
+            val delay = page.delayUntilReturn(SystemClock.uptimeMillis(), idleTimer.lastTouchAt)
+            if (delay > 0) {
+                handler.postDelayed(this, delay)
+                return
+            }
+            temporaryPage = null
+            val back = page.returnUrl
+            if (back == null || isSameRoute(back, homeUrl)) loadHome() else load(back)
+        }
+    }
 
     private val periodicReload = object : Runnable {
         override fun run() {
@@ -186,6 +212,8 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         idleTimer = IdleTimer(::onIdle)
         dimmer = ScreenDimmer(binding.blackout, window, prefs)
         pixelShift = PixelShift(binding.webContainer)
+        speaker = Speaker(this)
+        binding.message.setOnClickListener { hideMessage.run() }
         binding.adminCorner.setOnClickListener { requestSettings() }
         webView = createWebView()
         appliedUserAgent = prefs.userAgent
@@ -255,6 +283,8 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
             webView.onPause()
             watchdog.stop()
             dimmer.stop()
+            speaker.stop()
+            soundPlayer.stop()
         }
         // Write cookies to disk now so a login survives the process being killed in the background.
         CookieManager.getInstance().flush()
@@ -286,6 +316,8 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
             idleTimer.stop()
             watchdog.stop()
             dimmer.stop()
+            speaker.shutdown()
+            soundPlayer.stop()
             pixelShift.setEnabled(false)
             binding.webContainer.removeView(webView)
             webView.destroy()
@@ -447,12 +479,14 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     }
 
     private fun onIdle() {
-        if (!isSameRoute(webView.url, homeUrl)) loadHome()
+        // A temporary page goes back by itself, to where it was opened from.
+        if (temporaryPage == null && !isSameRoute(webView.url, homeUrl)) loadHome()
     }
 
     // WebView
 
     private fun loadHome() {
+        endTemporaryPageEarly()
         loadedHomeUrl = homeUrl
         load(homeUrl)
     }
@@ -558,6 +592,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
         idleTimer.timeoutMs = prefs.idleHomeMinutes * 60_000L
+        dimmer.refresh()
         pixelShift.setEnabled(prefs.burnInShift)
         scheduleReload()
     }
@@ -597,6 +632,9 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
                 .put("error", failure)
                 .put("battery", battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY))
                 .put("charging", battery.isCharging)
+                .put("brightness", prefs.brightness ?: KioskPrefs.BRIGHTNESS_AUTO)
+                .put("volume", volumePercent())
+                .put("temporaryPage", temporaryPage != null)
                 .put("version", packageManager.getPackageInfo(packageName, 0).versionName)
         }
 
@@ -604,7 +642,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
 
         override fun goHome() = onMainThread { loadHome() }
 
-        override fun open(url: String, makeHome: Boolean): String? = onMainThread {
+        override fun open(url: String, makeHome: Boolean, seconds: Int?): String? = onMainThread {
             val host = hostOf(url).orEmpty()
             when {
                 makeHome -> {
@@ -613,7 +651,12 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
                     null
                 }
                 !navigationPolicy().allowsHost(host) -> getString(R.string.blocked_host, host)
+                seconds != null -> {
+                    showTemporaryPage(url, seconds * 1000L)
+                    null
+                }
                 else -> {
+                    endTemporaryPageEarly()
                     load(url)
                     null
                 }
@@ -621,6 +664,59 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         }
 
         override fun setScreen(on: Boolean) = onMainThread { dimmer.turn(on) }
+
+        override fun setBrightness(percent: Int?) = onMainThread {
+            prefs.brightness = percent
+            dimmer.refresh()
+        }
+
+        override fun setVolume(percent: Int) = onMainThread {
+            val audio = getSystemService(AudioManager::class.java)
+            val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            audio.setStreamVolume(AudioManager.STREAM_MUSIC, (percent * max / 100f).roundToInt(), 0)
+        }
+
+        override fun speak(text: String, language: String?) = onMainThread { speaker.speak(text, language) }
+
+        override fun playSound(url: String?) = onMainThread {
+            if (url == null) soundPlayer.stop() else soundPlayer.play(url)
+        }
+
+        override fun showMessage(text: String, seconds: Int) = onMainThread {
+            binding.message.text = text
+            binding.message.isVisible = true
+            handler.removeCallbacks(hideMessage)
+            if (seconds > 0) handler.postDelayed(hideMessage, seconds * 1000L)
+            // A message nobody can see is no use, so it lights a dark screen while it's up.
+            dimmer.wakeFor(if (seconds > 0) seconds * 1000L else prefs.wakeMinutes * 60_000L)
+        }
+
+        override fun screenshot(): ByteArray? {
+            if (!prefs.apiScreenshots) return null
+            // Capturing finishes on a background thread; only starting it needs the main thread.
+            return Screenshot.toJpeg(onMainThread { Screenshot.request(window) })
+        }
+    }
+
+    private fun showTemporaryPage(url: String, durationMs: Long) {
+        val returnAt = SystemClock.uptimeMillis() + durationMs
+        temporaryPage = temporaryPage?.extendTo(returnAt) ?: TemporaryPage(webView.url, returnAt)
+        load(url)
+        dimmer.wakeFor(durationMs)
+        handler.removeCallbacks(endTemporaryPage)
+        handler.postDelayed(endTemporaryPage, durationMs)
+    }
+
+    /** Something else replaces the temporary page, so there's nothing to go back from. */
+    private fun endTemporaryPageEarly() {
+        temporaryPage = null
+        handler.removeCallbacks(endTemporaryPage)
+    }
+
+    private fun volumePercent(): Int {
+        val audio = getSystemService(AudioManager::class.java)
+        val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+        return (audio.getStreamVolume(AudioManager.STREAM_MUSIC) * 100f / max).roundToInt()
     }
 
     /** API requests arrive on worker threads; this runs [block] on the main thread and waits for it. */

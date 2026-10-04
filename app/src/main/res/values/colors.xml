@@ -2,4 +2,5 @@
     <color name="ic_launcher_background">#2563EB</color>
     <color name="error_background">#121212</color>
     <color name="error_secondary_text">#9AA0A6</color>
+    <color name="message_background">#E6202124</color>
 </resources>

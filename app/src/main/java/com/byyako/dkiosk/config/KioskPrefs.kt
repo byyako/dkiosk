@@ -95,6 +95,11 @@ class KioskPrefs(context: Context) {
             return stored.mapNotNull { it.toIntOrNull()?.takeIf { day -> day in 1..7 }?.let(DayOfWeek::of) }.toSet()
         }
 
+    /** Window brightness from 1 to 100 percent, or null to follow Android's brightness setting. */
+    var brightness: Int?
+        get() = parseBrightness(prefs.getString(BRIGHTNESS, null))
+        set(value) = prefs.edit { putString(BRIGHTNESS, value?.toString() ?: BRIGHTNESS_AUTO) }
+
     /** How long a touch wakes the screen during an off period. */
     val wakeMinutes: Int
         get() = prefs.getString(WAKE_MINUTES, "5")?.toIntOrNull() ?: 5
@@ -106,6 +111,9 @@ class KioskPrefs(context: Context) {
 
     val apiPort: Int
         get() = prefs.getString(API_PORT, null)?.toIntOrNull()?.takeIf { it in 1024..65535 } ?: DEFAULT_API_PORT
+
+    val apiScreenshots: Boolean
+        get() = prefs.getBoolean(API_SCREENSHOTS, false)
 
     var apiToken: String?
         get() = prefs.getString(API_TOKEN, null)
@@ -133,13 +141,18 @@ class KioskPrefs(context: Context) {
         const val SCHEDULE_ON = "schedule_on"
         const val SCHEDULE_DAYS = "schedule_days"
         const val WAKE_MINUTES = "wake_minutes"
+        const val BRIGHTNESS = "screen_brightness"
+        const val BRIGHTNESS_AUTO = "auto"
         const val API_ENABLED = "api_enabled"
         const val API_PORT = "api_port"
         const val API_TOKEN = "api_token"
+        const val API_SCREENSHOTS = "api_screenshots"
 
         const val DEFAULT_API_PORT = 8765
         val DEFAULT_OFF: LocalTime = LocalTime.of(22, 0)
         val DEFAULT_ON: LocalTime = LocalTime.of(7, 0)
+
+        fun parseBrightness(value: String?): Int? = value?.toIntOrNull()?.takeIf { it in 1..100 }
 
         fun parseTime(value: String?): LocalTime? {
             val parts = value?.split(":")?.mapNotNull { it.toIntOrNull() }

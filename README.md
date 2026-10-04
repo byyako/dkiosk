@@ -73,15 +73,25 @@ so keep it on a network you trust.
 
 | Request | Body | Does |
 |---|---|---|
-| `GET /status` | | Current page, home page, screen state, last load error, battery |
+| `GET /status` | | Current page, home page, screen state, brightness, volume, last load error, battery |
+| `GET /screenshot` | | A JPEG of the screen. Off until "Allow screenshots" is turned on in the settings |
 | `POST /reload` | | Reloads the page |
 | `POST /home` | | Goes to the home page |
 | `POST /url` | `{"url": "https://...", "home": false}` | Opens a page. It has to be an allowed site unless `"home": true`, which also makes it the new home page |
+| `POST /url` | `{"url": "https://...", "seconds": 30}` | Shows an allowed page for a while, like a doorbell camera, then goes back. Lights a dark screen meanwhile, and waits while someone is touching the screen |
 | `POST /screen` | `{"state": "off"}` or `{"state": "on"}` | Blacks out or wakes the screen until the schedule next switches |
+| `POST /brightness` | `{"level": 60}` or `{"level": "auto"}` | Sets the brightness from 1 to 100%, or back to Android's setting. Saved, and shown in the settings |
+| `POST /volume` | `{"level": 50}` | Sets the media volume from 0 to 100% |
+| `POST /speak` | `{"text": "Someone is at the door", "language": "en-US"}` | Speaks the text. Needs a text-to-speech engine on the device; `language` is optional |
+| `POST /sound` | `{"url": "http://..."}` or `{"stop": true}` | Plays a sound file from any address, or stops it |
+| `POST /message` | `{"text": "Dinner's ready", "seconds": 10}` | Shows a message at the bottom of the screen (`0` keeps it until tapped). Lights a dark screen while it's up |
+
+Sounds and speech stop when the settings are opened or dKiosk goes to the background.
 
 ```sh
 curl -H "Authorization: Bearer $TOKEN" http://192.168.1.50:8765/status
 curl -X POST -H "Authorization: Bearer $TOKEN" -d '{"state": "off"}' http://192.168.1.50:8765/screen
+curl -H "Authorization: Bearer $TOKEN" -o screen.jpg http://192.168.1.50:8765/screenshot
 ```
 
 ### Home Assistant

@@ -11,6 +11,8 @@ class KioskApiTest {
     private class FakeKiosk : KioskControl {
         val calls = mutableListOf<String>()
         var openProblem: String? = null
+        var speakProblem: String? = null
+        var screenshot: ByteArray? = byteArrayOf(1, 2, 3)
 
         override fun status(): JSONObject = JSONObject().put("screen", "on")
 
@@ -22,14 +24,37 @@ class KioskApiTest {
             calls += "home"
         }
 
-        override fun open(url: String, makeHome: Boolean): String? {
-            calls += "open $url home=$makeHome"
+        override fun open(url: String, makeHome: Boolean, seconds: Int?): String? {
+            calls += "open $url home=$makeHome" + (seconds?.let { " for $it" } ?: "")
             return openProblem
         }
 
         override fun setScreen(on: Boolean) {
             calls += "screen $on"
         }
+
+        override fun setBrightness(percent: Int?) {
+            calls += "brightness $percent"
+        }
+
+        override fun setVolume(percent: Int) {
+            calls += "volume $percent"
+        }
+
+        override fun speak(text: String, language: String?): String? {
+            calls += "speak $text ($language)"
+            return speakProblem
+        }
+
+        override fun playSound(url: String?) {
+            calls += "sound $url"
+        }
+
+        override fun showMessage(text: String, seconds: Int) {
+            calls += "message $text for $seconds"
+        }
+
+        override fun screenshot(): ByteArray? = screenshot
     }
 
     private val kiosk = FakeKiosk()
@@ -106,9 +131,92 @@ class KioskApiTest {
     }
 
     @Test
+    fun temporaryUrl() {
+        assertEquals(200, call("POST", "/url", """{"url": "http://cam.local/door", "seconds": 30}""").status)
+        assertEquals(listOf("open http://cam.local/door home=false for 30"), kiosk.calls)
+        assertEquals(400, call("POST", "/url", """{"url": "http://cam.local", "seconds": 0}""").status)
+        assertEquals(400, call("POST", "/url", """{"url": "http://cam.local", "seconds": 3601}""").status)
+        assertEquals(400, call("POST", "/url", """{"url": "http://cam.local", "seconds": 2.5}""").status)
+        assertEquals(400, call("POST", "/url", """{"url": "http://cam.local", "seconds": "30"}""").status)
+        assertEquals(400, call("POST", "/url", """{"url": "http://cam.local", "seconds": 30, "home": true}""").status)
+        assertEquals(1, kiosk.calls.size)
+    }
+
+    @Test
+    fun brightness() {
+        assertEquals(200, call("POST", "/brightness", """{"level": 40}""").status)
+        assertEquals(200, call("POST", "/brightness", """{"level": 100.0}""").status)
+        assertEquals(200, call("POST", "/brightness", """{"level": "auto"}""").status)
+        assertEquals(400, call("POST", "/brightness", """{"level": 0}""").status)
+        assertEquals(400, call("POST", "/brightness", """{"level": 101}""").status)
+        assertEquals(400, call("POST", "/brightness", """{"level": "50"}""").status)
+        assertEquals(400, call("POST", "/brightness", """{}""").status)
+        assertEquals(listOf("brightness 40", "brightness 100", "brightness null"), kiosk.calls)
+    }
+
+    @Test
+    fun volume() {
+        assertEquals(200, call("POST", "/volume", """{"level": 0}""").status)
+        assertEquals(200, call("POST", "/volume", """{"level": 100}""").status)
+        assertEquals(400, call("POST", "/volume", """{"level": -1}""").status)
+        assertEquals(400, call("POST", "/volume", """{"level": "loud"}""").status)
+        assertEquals(listOf("volume 0", "volume 100"), kiosk.calls)
+    }
+
+    @Test
+    fun speak() {
+        assertEquals(200, call("POST", "/speak", """{"text": " Someone is at the door "}""").status)
+        assertEquals(200, call("POST", "/speak", """{"text": "Hallo", "language": "de-DE"}""").status)
+        assertEquals(400, call("POST", "/speak", """{"text": "  "}""").status)
+        assertEquals(400, call("POST", "/speak", """{"text": "${"a".repeat(1001)}"}""").status)
+        assertEquals(400, call("POST", "/speak", """{"text": "Hi", "language": "not a tag!"}""").status)
+        assertEquals(listOf("speak Someone is at the door (null)", "speak Hallo (de-DE)"), kiosk.calls)
+
+        kiosk.speakProblem = "No engine"
+        val refused = call("POST", "/speak", """{"text": "Hi"}""")
+        assertEquals(503, refused.status)
+        assertEquals("No engine", refused.body.getString("error"))
+    }
+
+    @Test
+    fun sound() {
+        assertEquals(200, call("POST", "/sound", """{"url": "http://ha.local:8123/local/chime.mp3"}""").status)
+        assertEquals(200, call("POST", "/sound", """{"stop": true}""").status)
+        assertEquals(400, call("POST", "/sound", """{"url": "chime.mp3"}""").status)
+        assertEquals(400, call("POST", "/sound", """{"url": "file:///sdcard/chime.mp3"}""").status)
+        assertEquals(400, call("POST", "/sound", """{}""").status)
+        assertEquals(listOf("sound http://ha.local:8123/local/chime.mp3", "sound null"), kiosk.calls)
+    }
+
+    @Test
+    fun message() {
+        assertEquals(200, call("POST", "/message", """{"text": "Dinner's ready"}""").status)
+        assertEquals(200, call("POST", "/message", """{"text": "Stays", "seconds": 0}""").status)
+        assertEquals(400, call("POST", "/message", """{"text": ""}""").status)
+        assertEquals(400, call("POST", "/message", """{"text": "Hi", "seconds": -1}""").status)
+        assertEquals(400, call("POST", "/message", """{"text": "${"a".repeat(501)}"}""").status)
+        assertEquals(listOf("message Dinner's ready for 10", "message Stays for 0"), kiosk.calls)
+    }
+
+    @Test
+    fun screenshot() {
+        val response = call("GET", "/screenshot")
+        assertEquals(200, response.status)
+        assertEquals("image/jpeg", response.contentType)
+        val written = java.io.ByteArrayOutputStream().also { response.write(it) }.toByteArray()
+        assertTrue(written.toString(Charsets.ISO_8859_1).startsWith("HTTP/1.1 200 OK\r\n"))
+        assertTrue(written.takeLast(3) == listOf<Byte>(1, 2, 3))
+
+        kiosk.screenshot = null
+        assertEquals(403, call("GET", "/screenshot").status)
+        assertEquals(405, call("POST", "/screenshot").status)
+    }
+
+    @Test
     fun wrongMethodOrPath() {
         assertEquals(405, call("POST", "/status").status)
         assertEquals(405, call("GET", "/reload").status)
+        assertEquals(405, call("GET", "/speak").status)
         assertEquals(404, call("GET", "/nope").status)
         assertTrue(kiosk.calls.isEmpty())
     }

@@ -13,8 +13,14 @@ class ApiServerTest {
         override fun status() = JSONObject()
         override fun reload() = Unit
         override fun goHome() = Unit
-        override fun open(url: String, makeHome: Boolean): String? = null
+        override fun open(url: String, makeHome: Boolean, seconds: Int?): String? = null
         override fun setScreen(on: Boolean) = Unit
+        override fun setBrightness(percent: Int?) = Unit
+        override fun setVolume(percent: Int) = Unit
+        override fun speak(text: String, language: String?): String? = null
+        override fun playSound(url: String?) = Unit
+        override fun showMessage(text: String, seconds: Int) = Unit
+        override fun screenshot(): ByteArray? = null
     }
 
     @Test fun stopClosesActiveAndQueuedConnections() {

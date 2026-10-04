@@ -56,6 +56,23 @@
         <item>30</item>
     </string-array>
 
+    <string-array name="brightness_entries">
+        <item>Android\'s setting</item>
+        <item>10%</item>
+        <item>25%</item>
+        <item>50%</item>
+        <item>75%</item>
+        <item>100%</item>
+    </string-array>
+    <string-array name="brightness_values" translatable="false">
+        <item>auto</item>
+        <item>10</item>
+        <item>25</item>
+        <item>50</item>
+        <item>75</item>
+        <item>100</item>
+    </string-array>
+
     <string-array name="reload_values" translatable="false">
         <item>0</item>
         <item>15</item>

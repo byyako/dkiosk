@@ -101,6 +101,18 @@ requests while administrators edit settings. Shutdown closes queued and active s
 commands are cancelled if they time out before execution. Android 10+ doesn't let a background app bring itself to the
 front, so a background server couldn't do much anyway.
 
+Screenshots use `PixelCopy`, because drawing the view hierarchy misses the WebView's hardware
+layers. The copy finishes on a background thread so the API worker waits for it, not the main thread.
+They're off by default: a token holder could otherwise read whatever the dashboard shows.
+
+Messages and temporary pages light a dark screen for as long as they're up, since nobody would see
+them otherwise. A temporary page goes back to the page it replaced; a touch postpones that until the
+screen has been left alone for 15 seconds, so it isn't pulled away from someone using it. Loading the
+home page for any reason ends it.
+
+The brightness setting is the window's brightness, not Android's, so it needs no permission and
+only applies while dKiosk is in front.
+
 ## Android versions
 
 minSdk 26 (Android 8.0), targetSdk 36, compileSdk 37.

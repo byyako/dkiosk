@@ -50,6 +50,12 @@
             app:key="keep_screen_on"
             app:summary="@string/keep_screen_on_summary"
             app:title="@string/keep_screen_on" />
+        <ListPreference
+            app:defaultValue="auto"
+            app:entries="@array/brightness_entries"
+            app:entryValues="@array/brightness_values"
+            app:key="screen_brightness"
+            app:title="@string/brightness" />
         <SwitchPreferenceCompat
             app:defaultValue="false"
             app:key="burn_in_shift"
@@ -108,6 +114,12 @@
             app:key="api_token"
             app:summary="@string/api_token_summary"
             app:title="@string/api_token" />
+        <SwitchPreferenceCompat
+            app:defaultValue="false"
+            app:dependency="api_enabled"
+            app:key="api_screenshots"
+            app:summary="@string/api_screenshots_summary"
+            app:title="@string/api_screenshots" />
     </PreferenceCategory>
 
     <PreferenceCategory app:title="@string/settings_security">

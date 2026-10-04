@@ -39,12 +39,14 @@ class ScreenDimmer(private val blackout: View, private val window: Window, priva
         handler.removeCallbacks(update)
     }
 
-    fun onTouch() {
-        val wakeMs = prefs.wakeMinutes * 60_000L
-        state.wake(SystemClock.elapsedRealtime(), wakeMs)
+    fun onTouch() = wakeFor(prefs.wakeMinutes * 60_000L)
+
+    /** Lights a dark screen for [ms], e.g. after a touch or for a message sent over the API. */
+    fun wakeFor(ms: Long) {
+        state.wake(SystemClock.elapsedRealtime(), ms)
         update()
-        handler.removeCallbacks(update)
-        handler.postDelayed(update, wakeMs)
+        // Not replacing earlier checks: a short wake mustn't cancel the check for a longer one.
+        handler.postDelayed(update, ms)
     }
 
     /** Remote on/off. It holds until the schedule next switches. */
@@ -53,6 +55,9 @@ class ScreenDimmer(private val blackout: View, private val window: Window, priva
         update()
     }
 
+    /** Applies a changed brightness setting. */
+    fun refresh() = update()
+
     private fun scheduleSaysOff(): Boolean {
         if (!prefs.scheduleEnabled) return false
         return ScreenSchedule(prefs.screenOffAt, prefs.screenOnAt, prefs.scheduleDays).isOffPeriod(LocalDateTime.now())
@@ -60,10 +65,13 @@ class ScreenDimmer(private val blackout: View, private val window: Window, priva
 
     private fun update() {
         val dark = state.isDark(SystemClock.elapsedRealtime(), scheduleSaysOff())
-        if (dark == blackout.isVisible) return
         blackout.isVisible = dark
-        window.attributes = window.attributes.apply {
-            screenBrightness = if (dark) 0f else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+        val brightness = when {
+            dark -> 0f
+            else -> prefs.brightness?.let { it / 100f } ?: WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+        }
+        if (window.attributes.screenBrightness != brightness) {
+            window.attributes = window.attributes.apply { screenBrightness = brightness }
         }
     }
 }

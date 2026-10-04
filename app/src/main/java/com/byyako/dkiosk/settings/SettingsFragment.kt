@@ -17,6 +17,7 @@ import androidx.annotation.StringRes
 import androidx.appcompat.app.AlertDialog
 import androidx.core.net.toUri
 import androidx.preference.EditTextPreference
+import androidx.preference.ListPreference
 import androidx.preference.MultiSelectListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
@@ -47,6 +48,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
         setUpAllowedHosts()
         setUpUserAgent()
         setUpScheduleDays()
+        setUpBrightness()
         setUpApi()
         setUpHomeScreen()
         setUpPinProtection()
@@ -146,6 +148,14 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 emptySet<DayOfWeek>() -> getString(R.string.schedule_no_days)
                 else -> days.sorted().joinToString(", ") { it.getDisplayName(TextStyle.SHORT, Locale.getDefault()) }
             }
+        }
+    }
+
+    private fun setUpBrightness() {
+        // The API can set any percentage, not just the ones in the list.
+        findPreference<ListPreference>(KioskPrefs.BRIGHTNESS)?.setSummaryProvider {
+            prefs.brightness?.let { getString(R.string.brightness_percent, it) }
+                ?: resources.getStringArray(R.array.brightness_entries).first()
         }
     }
 

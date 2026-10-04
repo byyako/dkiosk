@@ -10,6 +10,10 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.HOME" />
         </intent>
+        <!-- Needed to find the text-to-speech engine for spoken announcements. -->
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
     </queries>
 
     <!-- Saved logins (cookies) and kiosk settings never restore onto another device: allowBackup
