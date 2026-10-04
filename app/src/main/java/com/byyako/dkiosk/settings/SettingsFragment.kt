@@ -25,6 +25,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.byyako.dkiosk.R
 import com.byyako.dkiosk.config.KioskPrefs
 import com.byyako.dkiosk.databinding.ViewNewPinBinding
+import com.byyako.dkiosk.lockdown.Lockdown
 import com.byyako.dkiosk.remote.KioskApi
 import com.byyako.dkiosk.remote.localIpAddress
 import com.byyako.dkiosk.ui.panForKeyboard
@@ -48,6 +49,8 @@ class SettingsFragment : PreferenceFragmentCompat() {
         setUpScheduleDays()
         setUpApi()
         setUpHomeScreen()
+        setUpPinProtection()
+        setUpLockdown()
 
         onClick("api_token", ::showApiToken)
         onClick("api_address") { localIpAddress(requireContext())?.let { copy("http://$it:${prefs.apiPort}") } }
@@ -56,6 +59,13 @@ class SettingsFragment : PreferenceFragmentCompat() {
         onClick("clear_site_data", ::clearSiteData)
         onClick("choose_home_app") { HomeApp.openHomeSettings(requireContext()) }
         onClick("exit", ::exitKiosk)
+        onClick("lockdown_help") {
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.lockdown_setup)
+                .setMessage(R.string.lockdown_help)
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
+        }
         onClick("support") { openLink(getString(R.string.support_url)) }
 
         val context = requireContext()
@@ -71,6 +81,10 @@ class SettingsFragment : PreferenceFragmentCompat() {
         findPreference<Preference>("choose_home_app")?.setSummary(
             if (HomeApp.isDefault(requireContext())) R.string.home_app_is_default else R.string.home_app_not_default,
         )
+        val locked = Lockdown(requireContext()).isLocked
+        findPreference<Preference>("home_screen")?.isEnabled = !locked
+        findPreference<Preference>("choose_home_app")?.isEnabled = !locked && HomeApp.isOffered(requireContext())
+        findPreference<Preference>("support")?.isEnabled = !locked
     }
 
     private fun setUpHomeUrl() {
@@ -193,6 +207,37 @@ class SettingsFragment : PreferenceFragmentCompat() {
         }
     }
 
+    private fun setUpPinProtection() {
+        val toggle = findPreference<SwitchPreferenceCompat>(KioskPrefs.PIN_REQUIRED) ?: return
+        toggle.isChecked = prefs.pinRequired
+        findPreference<Preference>("change_pin")?.isEnabled = prefs.pinRequired
+        toggle.setOnPreferenceChangeListener { _, required ->
+            if (required == true) {
+                changePin()
+            } else {
+                confirm(R.string.pin_disable_title, R.string.pin_disable_message) {
+                    prefs.pinRequired = false
+                    toggle.isChecked = false
+                    findPreference<Preference>("change_pin")?.isEnabled = false
+                }
+            }
+            false // Save only after the new PIN or confirmation succeeds.
+        }
+    }
+
+    private fun setUpLockdown() {
+        val toggle = findPreference<SwitchPreferenceCompat>(KioskPrefs.LOCKDOWN_ENABLED) ?: return
+        val available = Lockdown(requireContext()).isAvailable
+        toggle.isEnabled = available || prefs.lockdownEnabled // Allow disabling a stale configuration.
+        toggle.setSummary(if (available) R.string.lockdown_ready else R.string.lockdown_unavailable)
+        toggle.setOnPreferenceChangeListener { _, enabled ->
+            if (enabled == true && !Lockdown(requireContext()).isAvailable) {
+                toast(R.string.lockdown_unavailable)
+                false
+            } else true
+        }
+    }
+
     private fun changePin() {
         val form = ViewNewPinBinding.inflate(LayoutInflater.from(requireContext()))
         val padding = resources.getDimensionPixelSize(R.dimen.dialog_padding)
@@ -208,6 +253,9 @@ class SettingsFragment : PreferenceFragmentCompat() {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 val pin = form.readNewPin() ?: return@setOnClickListener
                 prefs.pinHash = Pin.hash(pin)
+                prefs.pinRequired = true
+                findPreference<SwitchPreferenceCompat>(KioskPrefs.PIN_REQUIRED)?.isChecked = true
+                findPreference<Preference>("change_pin")?.isEnabled = true
                 dialog.dismiss()
                 toast(R.string.pin_changed)
             }
@@ -235,12 +283,14 @@ class SettingsFragment : PreferenceFragmentCompat() {
     }
 
     private fun exitKiosk() {
-        if (HomeApp.isDefault(requireContext())) {
-            // As the home app, dKiosk would just be started again. Another home app has to be picked first.
-            toast(R.string.exit_pick_home_app)
-            HomeApp.openHomeSettings(requireContext())
+        val exit = {
+            requireActivity().setResult(Activity.RESULT_OK, Intent().putExtra(SettingsActivity.EXTRA_EXIT, true))
+            requireActivity().finish()
+        }
+        if (prefs.lockdownEnabled || Lockdown(requireContext()).isLocked) {
+            confirm(R.string.exit, R.string.lockdown_exit_message, exit)
         } else {
-            requireActivity().finishAffinity()
+            exit()
         }
     }
 

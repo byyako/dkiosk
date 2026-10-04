@@ -60,5 +60,9 @@ fun isSamePage(a: String?, b: String?): Boolean {
     return strip(a) == strip(b)
 }
 
+/** Idle recovery compares the full route, including a dashboard's #fragment. */
+fun isSameRoute(a: String?, b: String?): Boolean =
+    isSamePage(a, b) && a?.substringAfter('#', "") == b?.substringAfter('#', "")
+
 /** Host form used for comparisons: lowercase, no trailing dot, no leading "www.". */
 fun canonicalHost(host: String): String = host.lowercase().trimEnd('.').removePrefix("www.")

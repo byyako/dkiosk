@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/root"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
@@ -23,4 +24,19 @@
         android:clickable="true"
         android:focusable="true"
         android:visibility="gone" />
+
+    <!-- This is the physical top-right corner, including in RTL layouts. Touches are handled by
+         the activity; accessibility click opens the same administrator access flow. -->
+    <TextView
+        android:id="@+id/adminCorner"
+        android:layout_width="@dimen/settings_corner"
+        android:layout_height="@dimen/settings_corner"
+        android:layout_gravity="top|right"
+        android:clickable="true"
+        android:focusable="true"
+        android:contentDescription="@string/admin_access"
+        android:gravity="center"
+        android:textColor="@android:color/white"
+        android:textSize="18sp"
+        tools:ignore="RtlHardcoded" />
 </FrameLayout>

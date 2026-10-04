@@ -16,8 +16,20 @@ import com.byyako.dkiosk.ui.panForKeyboard
 /** Asks for the settings PIN. Five wrong tries lock it for 30 seconds, doubling after each further miss. */
 class PinPrompt(private val activity: Activity, private val prefs: KioskPrefs) {
 
+    private var activeDialog: AlertDialog? = null
+
+    fun dismiss() {
+        activeDialog?.dismiss()
+    }
+
     fun ask(onSuccess: () -> Unit, onCancel: () -> Unit = {}) {
-        val stored = prefs.pinHash ?: return onSuccess()
+        if (activeDialog != null) return onCancel()
+        if (!prefs.pinRequired) return onSuccess()
+        val stored = prefs.pinHash
+        if (stored == null) {
+            Toast.makeText(activity, R.string.pin_missing, Toast.LENGTH_LONG).show()
+            return onCancel()
+        }
 
         val secondsLocked = (lockedUntil - SystemClock.elapsedRealtime() + 999) / 1000
         if (secondsLocked > 0) {
@@ -27,19 +39,26 @@ class PinPrompt(private val activity: Activity, private val prefs: KioskPrefs) {
         }
 
         val binding = DialogPinBinding.inflate(LayoutInflater.from(activity))
+        var resolved = false
         val dialog = MaterialAlertDialogBuilder(activity)
             .setTitle(R.string.pin_title)
             .setView(binding.root)
             .setPositiveButton(R.string.pin_unlock, null)
-            .setNegativeButton(android.R.string.cancel) { _, _ -> onCancel() }
-            .setOnCancelListener { onCancel() }
+            .setNegativeButton(android.R.string.cancel, null)
             .create()
+        activeDialog = dialog
+        dialog.setOnDismissListener {
+            if (activeDialog === dialog) activeDialog = null
+            if (!resolved) onCancel()
+        }
 
         fun check() {
             val pin = binding.pin.text.toString()
             if (pin.isEmpty()) return
             if (Pin.matches(pin, stored)) {
                 failures = 0
+                lockedUntil = 0L
+                resolved = true
                 dialog.dismiss()
                 onSuccess()
                 return
@@ -48,6 +67,7 @@ class PinPrompt(private val activity: Activity, private val prefs: KioskPrefs) {
             binding.pin.text = null
             if (failures >= MAX_FAILURES) {
                 lockedUntil = SystemClock.elapsedRealtime() + (LOCKOUT_MS shl (failures - MAX_FAILURES).coerceAtMost(6))
+                resolved = true
                 dialog.dismiss()
                 ask(onSuccess, onCancel) // shows the lockout message
             } else {

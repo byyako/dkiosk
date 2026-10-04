@@ -5,12 +5,12 @@
 
     <!-- First run -->
     <string name="setup_title">Welcome to dKiosk</string>
-    <string name="setup_intro">Choose the page to show and a PIN for the settings. To change anything later, tap the top-right corner of the screen five times and enter the PIN.</string>
+    <string name="setup_intro">Choose the page to show. To open settings later, tap the top-right corner five times within five seconds. A PIN is optional.</string>
     <string name="setup_url_label">Page address</string>
     <string name="setup_url_hint">https://example.com</string>
     <string name="setup_url_prefix" translatable="false">https://</string>
     <string name="setup_invalid_url">Enter an http:// or https:// address</string>
-    <string name="setup_pin_note">Forgot the PIN? Clear dKiosk\'s storage in Android\'s app settings to start over. That also signs you out of the page.</string>
+    <string name="setup_pin_note">Without a PIN, anyone who knows the corner gesture can change settings and exit. For public kiosks, keep PIN protection on and set up managed lockdown in settings. Ordinary installs can still be exited using Android\'s system controls.</string>
     <string name="setup_start">Start kiosk</string>
 
     <!-- PIN -->
@@ -24,13 +24,29 @@
     <string name="pin_invalid" tools:ignore="PluralsCandidate">Use %1$d to %2$d digits</string>
     <string name="pin_mismatch">The PINs don\'t match</string>
     <string name="pin_changed">PIN changed</string>
+    <string name="pin_required">Require administrator PIN</string>
+    <string name="pin_required_on">Ask for the PIN before opening settings or trusting a certificate</string>
+    <string name="pin_required_off">The corner gesture opens settings without a PIN</string>
+    <string name="pin_disable_title">Turn off PIN protection</string>
+    <string name="pin_disable_message">Anyone who knows the corner gesture will be able to change settings and exit, including in managed lockdown. Certificate trust decisions will also be possible without a PIN.</string>
+    <string name="pin_missing">PIN protection is on but the saved PIN is missing. Restore the app settings or clear app storage to set up again.</string>
+    <string name="admin_access">Administrator settings</string>
+    <string name="admin_tap_progress">%1$d/5</string>
+    <string name="lockdown">Managed lockdown</string>
+    <string name="lockdown_ready">Blocks Home, Recents and system controls while the kiosk is running. Takes effect when you return to the dashboard.</string>
+    <string name="lockdown_unavailable">Requires Device Owner setup or approval from your device management provider</string>
+    <string name="lockdown_setup">About managed lockdown</string>
+    <string name="lockdown_help">Managed lockdown keeps visitors inside dKiosk using Android\'s lock task mode. PIN protection is separate and optional. Without a PIN, the corner gesture permits administrator access and exit.\n\nFor a dedicated device, back up its data and provision dKiosk as Device Owner before adding accounts. This usually requires a factory reset; installing the app or granting ordinary device administrator rights is not enough.\n\nAn existing device management provider can instead allowlist this app for lock task mode. See the managed kiosk guide in the project documentation.\n\nUse Exit kiosk in settings to leave lockdown. If dKiosk is the home app, choose another home app after exiting.</string>
+    <string name="lockdown_failed">Managed lockdown is unavailable. Check device provisioning before using this as a public kiosk.</string>
+    <string name="lockdown_exit_message">This turns managed lockdown off so you can leave. Turn it on again in settings before returning the device to public use.</string>
+    <string name="lockdown_exit_failed">Your device manager controls this lock task session. Ask the administrator to release it.</string>
 
     <!-- Page -->
     <string name="blocked_host">Blocked: %1$s isn\'t an allowed site</string>
     <string name="blocked_scheme">Blocked: %1$s: links can\'t open in the kiosk</string>
 
     <string name="cert_untrusted_title">Untrusted certificate</string>
-    <string name="cert_untrusted_message">%1$s uses a certificate Android doesn\'t trust, such as a self-signed one.\n\nSHA-256 fingerprint:\n%2$s\n\nOnly trust it if this is your own server and the fingerprint matches. You\'ll need the PIN.</string>
+    <string name="cert_untrusted_message">%1$s uses a certificate Android doesn\'t trust, such as a self-signed one.\n\nSHA-256 fingerprint:\n%2$s\n\nOnly trust it if this is your own server and the fingerprint matches. If PIN protection is on, you\'ll need the PIN.</string>
     <string name="cert_changed_title">Certificate changed</string>
     <string name="cert_changed_message">The certificate for %1$s is different from the one trusted before. That\'s expected if the server got a new certificate, but it can also mean someone is intercepting the connection.\n\nNew SHA-256 fingerprint:\n%2$s</string>
     <string name="cert_trust">Trust</string>
@@ -75,7 +91,7 @@
     <string name="settings_screen">Screen</string>
     <string name="keep_screen_on">Keep the screen on</string>
     <string name="keep_screen_on_summary">Otherwise Android\'s normal screen timeout applies</string>
-    <string name="burn_in_shift">Prevent burn-in</string>
+    <string name="burn_in_shift">Reduce burn-in risk</string>
     <string name="burn_in_shift_summary">Moves the page a few pixels every two minutes. Useful for OLED screens showing a static dashboard all day.</string>
     <string name="schedule">Turn the screen off on a schedule</string>
     <string name="schedule_summary">The screen goes black and dims. A touch wakes it.</string>
@@ -90,7 +106,7 @@
 
     <string name="settings_remote">Remote control</string>
     <string name="api_enabled">HTTP API</string>
-    <string name="api_enabled_summary">Control the kiosk from your network, for example from Home Assistant</string>
+    <string name="api_enabled_summary">Control the kiosk from your network while the dashboard is visible. Pauses in settings and in the background.</string>
     <string name="api_port">Port</string>
     <string name="api_port_invalid">Use a port from 1024 to 65535</string>
     <string name="api_port_busy">Couldn\'t start the API: port %1$d is already in use</string>

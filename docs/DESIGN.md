@@ -4,12 +4,14 @@ Why dKiosk works the way it does. For how to build and test it, see [DEVELOPMENT
 
 ## Scope
 
-dKiosk shows one web page full screen on an ordinary Android device. It deliberately doesn't use
-Device Owner or lock task mode: those need a factory reset and adb provisioning, which is too much
-for most people who just want a dashboard on an old phone. The price is that someone who knows the
-system gestures can still leave the app. The PIN protects the settings, not the device.
+dKiosk shows one web page full screen on an Android device. Ordinary installs suit personal
+dashboards and allow Android's system gestures to leave the app. Public devices can opt into
+managed lock task mode after Device Owner provisioning or a device manager's allowlist approval.
+The app never substitutes screen pinning when management is absent, because users can exit it.
+See [MANAGED-KIOSK.md](MANAGED-KIOSK.md) for provisioning and acceptance checks.
 
-Nothing is hardcoded. Every install is set up on first run with its own page and PIN.
+Every install chooses its page on first run. Administrator PIN protection defaults to on and is
+optional, independently of managed lockdown. Existing installs preserve their PIN.
 
 ## Navigation
 
@@ -33,11 +35,13 @@ Plain `http://` is allowed everywhere because LAN dashboards use it and network 
 can't express IP ranges.
 
 Self-signed certificates are trusted per host and exact SHA-256 fingerprint, after showing the
-fingerprint and asking for the PIN. A different certificate for the same host gets a "changed"
+fingerprint and asking for the PIN when protection is enabled. A different certificate for the same host gets a "changed"
 warning. `SslErrorHandler.proceed()` is never called unconditionally.
 
 Basic auth credentials go in WebView's own database. Only allowed hosts can prompt; other hosts'
-requests are cancelled. Backups and device-to-device transfer are disabled so none of this, or the
+requests are cancelled, including requests with previously saved credentials or certificate pins.
+Pending prompts are cancelled when the activity pauses or the renderer is replaced. Backups and
+device-to-device transfer are disabled so none of this, or the
 cookies, ends up on another device.
 
 ## Recovery
@@ -75,8 +79,12 @@ swallowed so it can't press anything on the page.
 
 ## Settings access
 
-Five taps within three seconds in the top-right corner, then the PIN. The taps still reach the page,
-so the page's own buttons in that corner keep working. The PIN is stored as a salted PBKDF2 hash.
+Five completed taps within five seconds in a reserved 80 dp top-right corner, then the optional PIN.
+The area consumes touches so page controls cannot interrupt the sequence. Progress is visible;
+movement beyond Android's touch slop, long presses, cancelled gestures, multitouch and outside
+touches reset it. Bounds use screen coordinates and avoid cutouts and system gesture insets.
+An accessibility click on the administrator target opens the same optional PIN flow.
+The PIN is stored as a salted PBKDF2 hash.
 Five wrong tries lock the prompt for 30 seconds, doubling after that.
 
 Home-screen mode puts the HOME intent filter on an activity alias that is disabled by default.
@@ -87,7 +95,9 @@ If it were on the main activity, installing the app could make Android ask which
 A tiny HTTP/1.1 server written for the purpose: one JSON request per connection, size limits, a
 10-second read deadline and a bounded worker queue. NanoHTTPD would have been the usual choice, but
 it's unmaintained and has open CVEs. Every request needs a bearer token, compared in constant time.
-The server lives with the activity. Android 10+ doesn't let a background app bring itself to the
+The server runs only while the dashboard activity is resumed, so old tokens cannot keep serving
+requests while administrators edit settings. Shutdown closes queued and active sockets. Main-thread
+commands are cancelled if they time out before execution. Android 10+ doesn't let a background app bring itself to the
 front, so a background server couldn't do much anyway.
 
 ## Android versions

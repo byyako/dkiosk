@@ -24,7 +24,23 @@ class KioskPrefs(context: Context) {
         set(value) = prefs.edit { putString(PIN_HASH, value) }
 
     val isSetUp: Boolean
-        get() = homeUrl != null && pinHash != null
+        get() = homeUrl != null && (prefs.getBoolean(SETUP_COMPLETE, false) || pinHash != null)
+
+    var pinRequired: Boolean
+        get() = prefs.getBoolean(PIN_REQUIRED, true)
+        set(value) = prefs.edit { putBoolean(PIN_REQUIRED, value) }
+
+    var lockdownEnabled: Boolean
+        get() = prefs.getBoolean(LOCKDOWN_ENABLED, false)
+        set(value) = prefs.edit { putBoolean(LOCKDOWN_ENABLED, value) }
+
+    /** Save setup together so an optional PIN doesn't send the next launch back to setup. */
+    fun completeSetup(url: String, hash: String?) = prefs.edit {
+        putString(HOME_URL, url)
+        putString(PIN_HASH, hash)
+        putBoolean(PIN_REQUIRED, hash != null)
+        putBoolean(SETUP_COMPLETE, true)
+    }
 
     // Page
 
@@ -100,6 +116,9 @@ class KioskPrefs(context: Context) {
 
         const val HOME_URL = "home_url"
         const val PIN_HASH = "pin_hash"
+        const val PIN_REQUIRED = "pin_required"
+        const val SETUP_COMPLETE = "setup_complete"
+        const val LOCKDOWN_ENABLED = "lockdown_enabled"
         const val RESTRICT_NAVIGATION = "restrict_navigation"
         const val ALLOWED_HOSTS = "allowed_hosts"
         const val ALLOW_ZOOM = "allow_zoom"

@@ -111,6 +111,12 @@
     </PreferenceCategory>
 
     <PreferenceCategory app:title="@string/settings_security">
+        <SwitchPreferenceCompat
+            app:key="pin_required"
+            app:persistent="false"
+            app:summaryOn="@string/pin_required_on"
+            app:summaryOff="@string/pin_required_off"
+            app:title="@string/pin_required" />
         <Preference
             app:key="change_pin"
             app:title="@string/change_pin" />
@@ -122,6 +128,13 @@
             app:key="clear_site_data"
             app:summary="@string/clear_site_data_summary"
             app:title="@string/clear_site_data" />
+        <SwitchPreferenceCompat
+            app:defaultValue="false"
+            app:key="lockdown_enabled"
+            app:title="@string/lockdown" />
+        <Preference
+            app:key="lockdown_help"
+            app:title="@string/lockdown_setup" />
     </PreferenceCategory>
 
     <PreferenceCategory app:title="@string/settings_home_screen">

@@ -4,7 +4,8 @@ A full-screen kiosk browser for Android. Point it at a dashboard (Home Assistant
 page, anything on the web or your LAN) and it keeps that page on screen: no browser bars, no
 wandering off to other sites, and it recovers by itself when the network or the page misbehaves.
 
-It runs on an ordinary phone or tablet with Android 8.0 or newer. No root, no device owner setup.
+It runs on a phone or tablet with Android 8.0 or newer. Personal dashboards need no special setup.
+For public devices, optional [managed lockdown](docs/MANAGED-KIOSK.md) blocks Android's normal exits.
 
 ## Features
 
@@ -19,18 +20,20 @@ It runs on an ordinary phone or tablet with Android 8.0 or newer. No root, no de
   comes back), rebuilds the browser if it crashes, reloads a page that has frozen, and can go back to
   the home page after a period without touches or reload on a timer.
 - **Screen schedule**: black out the screen overnight or on chosen days; a touch wakes it.
-- **Burn-in protection**: optionally nudges the page a few pixels every couple of minutes.
+- **Reduce burn-in risk**: optionally nudges the page a few pixels every couple of minutes.
 - **Remote control**: an optional HTTP API for reloading, changing the page and switching the screen
   on or off, for example from Home Assistant.
 - **Home-screen mode**: optionally make it the phone's home app so it comes back after a reboot.
-- **Locked settings**: everything is behind a PIN.
+- **Administrator access**: five corner taps open settings, with an optional PIN.
+- **Managed lockdown**: Device Owner or a device management provider can allowlist dKiosk for
+  Android's lock task mode, blocking Home, Recents and system controls.
 
 ## Install
 
 1. Download the latest `dkiosk-<version>.apk` from the
    [Releases page](https://github.com/byyako/dkiosk/releases/latest).
 2. Open it on the device. Android will ask you to allow installs from your browser or file manager.
-3. Open dKiosk, enter the page address and choose a settings PIN.
+3. Open dKiosk, enter the page address and choose whether to require an administrator PIN.
 
 **Updating:** install the new APK over the old one; settings and sign-ins are kept. dKiosk doesn't
 update itself, but [Obtainium](https://github.com/ImranR98/Obtainium) can watch the Releases page
@@ -42,14 +45,21 @@ didn't come from here.
 
 ## Using it
 
-**Settings:** tap the top-right corner of the screen five times quickly, then enter the PIN. Taps
-still reach the page, so buttons in that corner keep working.
+**Settings:** tap the top-right corner five times within five seconds. Progress appears after each
+tap, and a PIN is requested if protection is enabled. The 80 dp corner area is reserved for this
+gesture, so dashboard controls there do not receive touches. Drags, long presses, multiple fingers
+and touches outside the corner reset the sequence. The gesture works on the error screen too.
+
+**Optional PIN:** turn "Require administrator PIN" on or off in settings. Existing installs keep
+their PIN protection. Without a PIN, anyone who knows the gesture can change settings, trust
+certificates and exit, including in managed lockdown.
 
 **Forgot the PIN?** Clear dKiosk's storage in Android's app settings (Settings, Apps, dKiosk Browser,
 Storage). That resets everything, including the sign-in to your page.
 
-**Leaving the kiosk:** use "Exit kiosk" in the settings, or the normal Home/recents gestures. In
-home-screen mode, pick another home app first (the settings screen takes you there).
+**Leaving the kiosk:** use "Exit kiosk" in settings. This turns managed lockdown off before leaving.
+In home-screen mode, choose another home app when prompted. Ordinary installs also allow Android's
+Home/Recents gestures; public devices need managed provisioning to block those exits.
 
 **Start after a reboot:** turn on "Use as home screen" in the settings and pick dKiosk Browser as the
 home app. Android only lets a home app start by itself after a reboot.
@@ -58,7 +68,8 @@ home app. Android only lets a home app start by itself after a reboot.
 
 Turn on "HTTP API" in the settings. The settings show the address (like `http://192.168.1.50:8765`)
 and an access token. Every request needs the header `Authorization: Bearer <token>`. The API only
-works while dKiosk is open, and it's plain HTTP, so keep it on a network you trust.
+works while the dashboard is visible; it stops in settings and in the background. It is plain HTTP,
+so keep it on a network you trust.
 
 | Request | Body | Does |
 |---|---|---|
@@ -114,7 +125,7 @@ everyone has left the house.
 
 - A phone that is always plugged in can have its battery swell over the months. If your ROM has a
   charging limit (stop at 80%), turn it on.
-- A static dashboard on an OLED screen can burn in. Turn on "Prevent burn-in" and the screen
+- A static dashboard on an OLED screen can burn in. Turn on "Reduce burn-in risk" and the screen
   schedule.
 - Turn off battery optimization for dKiosk if the phone's ROM kills apps in the background.
 

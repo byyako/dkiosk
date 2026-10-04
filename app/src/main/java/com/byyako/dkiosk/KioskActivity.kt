@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.graphics.Color
+import android.graphics.Rect
 import android.net.ConnectivityManager
 import android.net.Network
 import android.os.BatteryManager
@@ -15,6 +16,7 @@ import android.os.SystemClock
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.WindowManager
 import android.webkit.CookieManager
@@ -22,6 +24,7 @@ import android.webkit.HttpAuthHandler
 import android.webkit.SslErrorHandler
 import android.webkit.WebView
 import android.widget.Toast
+import android.widget.FrameLayout
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -33,6 +36,7 @@ import androidx.core.view.updatePadding
 import androidx.lifecycle.Lifecycle
 import com.byyako.dkiosk.config.KioskPrefs
 import com.byyako.dkiosk.databinding.ActivityKioskBinding
+import com.byyako.dkiosk.lockdown.Lockdown
 import com.byyako.dkiosk.recovery.Backoff
 import com.byyako.dkiosk.recovery.ErrorScreen
 import com.byyako.dkiosk.recovery.IdleTimer
@@ -43,8 +47,9 @@ import com.byyako.dkiosk.remote.KioskControl
 import com.byyako.dkiosk.screen.PixelShift
 import com.byyako.dkiosk.screen.ScreenDimmer
 import com.byyako.dkiosk.settings.PinPrompt
+import com.byyako.dkiosk.settings.HomeApp
+import com.byyako.dkiosk.settings.CornerTapGesture
 import com.byyako.dkiosk.settings.SettingsActivity
-import com.byyako.dkiosk.settings.TapSequence
 import com.byyako.dkiosk.setup.SetupActivity
 import com.byyako.dkiosk.web.CertificatePins
 import com.byyako.dkiosk.web.KioskChromeClient
@@ -54,6 +59,7 @@ import com.byyako.dkiosk.web.PagePrompts
 import com.byyako.dkiosk.web.Verdict
 import com.byyako.dkiosk.web.hostOf
 import com.byyako.dkiosk.web.isSamePage
+import com.byyako.dkiosk.web.isSameRoute
 import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.FutureTask
@@ -74,7 +80,21 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     private lateinit var pixelShift: PixelShift
 
     private val handler = Handler(Looper.getMainLooper())
-    private val settingsTaps = TapSequence()
+    private val cornerGesture by lazy { CornerTapGesture(ViewConfiguration.get(this).scaledTouchSlop.toFloat()) }
+    private val cornerBounds = Rect()
+    private val cornerLocation = IntArray(2)
+    private var restoredLockTaskStart = false
+    private val lockdown by lazy { Lockdown(this, restoredLockTaskStart) }
+    private var cornerCaptured = false
+    private var lockdownWarningShown = false
+    private var dashboardActive = false
+    private var networkRegistered = false
+    private var destroyed = false
+    private val clearCornerProgress = Runnable {
+        cornerGesture.reset()
+        binding.adminCorner.text = ""
+        binding.adminCorner.setBackgroundColor(Color.TRANSPARENT)
+    }
     private val pageBackoff = Backoff()
     private val rendererBackoff = Backoff()
     private var lastRendererLossAt = 0L
@@ -98,7 +118,9 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         get() = prefs.homeUrl.orEmpty()
 
     private val openSettings = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.data?.getBooleanExtra(SettingsActivity.EXTRA_RELOAD, false) == true) loadHome()
+        if (result.data?.getBooleanExtra(SettingsActivity.EXTRA_EXIT, false) == true) {
+            exitKiosk()
+        } else if (result.data?.getBooleanExtra(SettingsActivity.EXTRA_RELOAD, false) == true) loadHome()
     }
 
     // Registering the callback reports the network that's already up; only one that comes back counts.
@@ -108,7 +130,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         override fun onAvailable(network: Network) {
             if (!offline) return
             offline = false
-            runOnUiThread { if (errorScreen.isShowing) errorScreen.retryNow() }
+            runOnUiThread { if (!destroyed && ::errorScreen.isInitialized && errorScreen.isShowing) errorScreen.retryNow() }
         }
 
         override fun onLost(network: Network) {
@@ -120,6 +142,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     private val loadTimeout = Runnable {
         onPageFailed(loadingUrl ?: homeUrl, getString(R.string.error_timeout))
     }
+    private val rendererRetry = Runnable { loadHome() }
 
     private val periodicReload = object : Runnable {
         override fun run() {
@@ -135,6 +158,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        restoredLockTaskStart = savedInstanceState?.getBoolean(LOCK_TASK_STARTED, false) == true
         prefs = KioskPrefs(this)
         if (!prefs.isSetUp) {
             startActivity(Intent(this, SetupActivity::class.java))
@@ -153,12 +177,15 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         pinPrompt = PinPrompt(this, prefs)
         val certPins = CertificatePins(load = { prefs.trustedCerts }, save = { prefs.trustedCerts = it })
         prompts = PagePrompts(this, certPins, ::navigationPolicy, pinPrompt::ask)
-        chromeClient = KioskChromeClient(this)
+        chromeClient = KioskChromeClient(this) { candidate ->
+            dashboardActive && !destroyed && ::webView.isInitialized && webView === candidate
+        }
         errorScreen = ErrorScreen(binding.errorScreen) { load(failedUrl ?: homeUrl) }
         watchdog = Watchdog({ webView }, { chromeClient.isDialogOpen }, ::onPageUnresponsive)
         idleTimer = IdleTimer(::onIdle)
         dimmer = ScreenDimmer(binding.blackout, window, prefs)
         pixelShift = PixelShift(binding.webContainer)
+        binding.adminCorner.setOnClickListener { requestSettings() }
         webView = createWebView()
         appliedUserAgent = prefs.userAgent
 
@@ -178,42 +205,83 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         // In home-screen mode the Home button lands here: treat it as "back to the home page".
-        if (intent.hasCategory(Intent.CATEGORY_HOME)) loadHome()
+        if (::webView.isInitialized && intent.hasCategory(Intent.CATEGORY_HOME)) loadHome()
     }
 
     override fun onStart() {
         super.onStart()
+        if (!::webView.isInitialized) return
         val connectivity = getSystemService(ConnectivityManager::class.java)
         offline = connectivity.activeNetwork == null
         connectivity.registerDefaultNetworkCallback(networkCallback)
+        networkRegistered = true
     }
 
     override fun onResume() {
         super.onResume()
+        if (!::webView.isInitialized || isFinishing) return
+        dashboardActive = true
         webView.onResume()
         watchdog.start()
         applySettings()
         dimmer.start()
+        applyApiSettings()
+        try {
+            if (prefs.lockdownEnabled) {
+                if (!lockdown.start(this) && !lockdownWarningShown) {
+                    Toast.makeText(this, R.string.lockdown_failed, Toast.LENGTH_LONG).show()
+                    lockdownWarningShown = true
+                }
+            } else if (!lockdown.stop(this) && !lockdownWarningShown) {
+                Toast.makeText(this, R.string.lockdown_exit_failed, Toast.LENGTH_LONG).show()
+                lockdownWarningShown = true
+            }
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Device policy refused lockdown", e)
+            Toast.makeText(this, R.string.lockdown_failed, Toast.LENGTH_LONG).show()
+        }
     }
 
     override fun onPause() {
-        webView.onPause()
-        watchdog.stop()
-        dimmer.stop()
+        dashboardActive = false
+        apiServer?.stop()
+        apiServer = null
+        if (::webView.isInitialized) {
+            resetCornerGesture()
+            pinPrompt.dismiss()
+            prompts.dismiss()
+            chromeClient.dismiss()
+            webView.onPause()
+            watchdog.stop()
+            dimmer.stop()
+        }
         // Write cookies to disk now so a login survives the process being killed in the background.
         CookieManager.getInstance().flush()
         super.onPause()
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        if (::webView.isInitialized) outState.putBoolean(LOCK_TASK_STARTED, lockdown.startedHere)
+        super.onSaveInstanceState(outState)
+    }
+
     override fun onStop() {
-        getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(networkCallback)
+        if (networkRegistered) {
+            getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(networkCallback)
+            networkRegistered = false
+        }
         super.onStop()
     }
 
     override fun onDestroy() {
+        destroyed = true
         handler.removeCallbacksAndMessages(null)
         apiServer?.stop()
         if (::webView.isInitialized) {
+            errorScreen.hide()
+            pinPrompt.dismiss()
+            prompts.dismiss()
+            chromeClient.dismiss()
             idleTimer.stop()
             watchdog.stop()
             dimmer.stop()
@@ -231,20 +299,71 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (!::webView.isInitialized) return super.dispatchTouchEvent(event)
         if (event.actionMasked == MotionEvent.ACTION_DOWN) {
             idleTimer.onTouch()
             // The touch that wakes a dark screen shouldn't also press something on the page.
             swallowGesture = dimmer.isDark
             dimmer.onTouch()
-            val corner = resources.getDimension(R.dimen.settings_corner)
-            val inCorner = event.x > binding.root.width - corner && event.y < corner
-            if (inCorner && settingsTaps.onTap(event.eventTime)) {
-                pinPrompt.ask({ openSettings.launch(Intent(this, SettingsActivity::class.java)) })
-            }
+            binding.adminCorner.getLocationOnScreen(cornerLocation)
+            cornerBounds.set(
+                cornerLocation[0], cornerLocation[1],
+                cornerLocation[0] + binding.adminCorner.width, cornerLocation[1] + binding.adminCorner.height,
+            )
+            cornerCaptured = !swallowGesture && cornerBounds.contains(event.rawX.toInt(), event.rawY.toInt())
+            if (cornerCaptured) {
+                cornerGesture.down(event.rawX, event.rawY, event.eventTime)
+            } else resetCornerGesture()
         }
         if (swallowGesture) return true
-        // Corner taps still reach the page, so buttons up there keep working.
+        if (cornerCaptured) {
+            when (event.actionMasked) {
+                MotionEvent.ACTION_MOVE -> cornerGesture.move(event.rawX, event.rawY)
+                MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_CANCEL -> resetCornerGesture()
+                MotionEvent.ACTION_UP -> {
+                    val result = cornerGesture.up(event.rawX, event.rawY, event.eventTime)
+                    cornerCaptured = false
+                    handler.removeCallbacks(clearCornerProgress)
+                    if (result.complete) {
+                        requestSettings()
+                    } else if (result.progress > 0) {
+                        binding.adminCorner.text = getString(R.string.admin_tap_progress, result.progress)
+                        binding.adminCorner.setBackgroundColor(0xCC000000.toInt())
+                        handler.postDelayed(clearCornerProgress, cornerGesture.windowMs)
+                    } else resetCornerGesture()
+                }
+            }
+            return true
+        }
         return super.dispatchTouchEvent(event)
+    }
+
+    private fun resetCornerGesture() {
+        handler.removeCallbacks(clearCornerProgress)
+        clearCornerProgress.run()
+    }
+
+    private fun requestSettings() {
+        resetCornerGesture()
+        pinPrompt.ask({ openSettings.launch(Intent(this, SettingsActivity::class.java)) })
+    }
+
+    private fun exitKiosk() {
+        try {
+            if (!lockdown.stop(this)) {
+                Toast.makeText(this, R.string.lockdown_exit_failed, Toast.LENGTH_LONG).show()
+                return
+            }
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Device policy refused exit", e)
+            Toast.makeText(this, R.string.lockdown_exit_failed, Toast.LENGTH_LONG).show()
+            return
+        }
+        prefs.lockdownEnabled = false
+        if (HomeApp.isDefault(this)) {
+            Toast.makeText(this, R.string.exit_pick_home_app, Toast.LENGTH_LONG).show()
+            HomeApp.openHomeSettings(this)
+        } else finishAffinity()
     }
 
     // Page callbacks
@@ -280,7 +399,8 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     }
 
     override fun onPageLoaded(url: String) {
-        if (!pageStarted) return
+        if (!pageStarted || !isSamePage(loadingUrl, url)) return
+        pageStarted = false
         handler.removeCallbacks(loadTimeout)
         pageBackoff.reset()
         failedUrl = null
@@ -289,6 +409,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     }
 
     override fun onPageFailed(url: String, reason: String) {
+        if (!isSamePage(loadingUrl, url)) return
         handler.removeCallbacks(loadTimeout)
         kioskLoad = null
         failedUrl = url
@@ -296,11 +417,13 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         errorScreen.show(hostOf(url) ?: url, reason, pageBackoff.nextDelayMs())
     }
 
-    override fun onUntrustedCertificate(host: String, fingerprint: String, handler: SslErrorHandler) =
-        prompts.onUntrustedCertificate(host, fingerprint, handler)
+    override fun onUntrustedCertificate(host: String, fingerprint: String, handler: SslErrorHandler) {
+        if (dashboardActive) prompts.onUntrustedCertificate(host, fingerprint, handler) else handler.cancel()
+    }
 
-    override fun onLoginRequest(host: String, realm: String, handler: HttpAuthHandler) =
-        prompts.onLoginRequest(host, realm, handler)
+    override fun onLoginRequest(host: String, realm: String, handler: HttpAuthHandler) {
+        if (dashboardActive) prompts.onLoginRequest(host, realm, handler) else handler.cancel()
+    }
 
     override fun onRendererGone(crashed: Boolean) {
         Log.w(TAG, "WebView renderer gone (crashed=$crashed), replacing the WebView")
@@ -311,7 +434,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         lastRendererLossAt = now
 
         replaceWebView()
-        handler.postDelayed(::loadHome, delay)
+        handler.postDelayed(rendererRetry, delay)
     }
 
     private fun onPageUnresponsive() {
@@ -323,7 +446,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     }
 
     private fun onIdle() {
-        if (!isSamePage(webView.url, homeUrl)) loadHome()
+        if (!isSameRoute(webView.url, homeUrl)) loadHome()
     }
 
     // WebView
@@ -335,6 +458,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
 
     /** Every load the kiosk starts itself is timed from the start, so a server that never answers is caught too. */
     private fun load(url: String) {
+        handler.removeCallbacks(rendererRetry)
         // The current page with another #fragment just scrolls or switches a hash route: no new page
         // starts, but its finish still counts.
         val current = webView.copyBackForwardList().currentItem?.url
@@ -344,6 +468,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     }
 
     private fun reloadPage() {
+        handler.removeCallbacks(rendererRetry)
         startKioskLoad(webView.url, sameDocument = false)
         webView.reload()
     }
@@ -369,7 +494,12 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
 
     private fun replaceWebView() {
         handler.removeCallbacks(loadTimeout)
+        handler.removeCallbacks(rendererRetry)
+        errorScreen.hide()
         watchdog.stop()
+        pinPrompt.dismiss()
+        prompts.dismiss()
+        chromeClient.dismiss()
         binding.webContainer.removeView(webView)
         webView.destroy()
         webView = createWebView()
@@ -392,7 +522,9 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
             setAcceptCookie(true)
             setAcceptThirdPartyCookies(view, true)
         }
-        view.webViewClient = KioskWebViewClient(this)
+        view.webViewClient = KioskWebViewClient(this) { candidate ->
+            !destroyed && ::webView.isInitialized && webView === candidate
+        }
         view.webChromeClient = chromeClient
         view.setDownloadListener { _, _, _, _, _ ->
             Toast.makeText(this, R.string.download_blocked, Toast.LENGTH_SHORT).show()
@@ -427,7 +559,6 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         idleTimer.timeoutMs = prefs.idleHomeMinutes * 60_000L
         pixelShift.setEnabled(prefs.burnInShift)
         scheduleReload()
-        applyApiSettings()
     }
 
     private fun applyApiSettings() {
@@ -493,9 +624,18 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
 
     /** API requests arrive on worker threads; this runs [block] on the main thread and waits for it. */
     private fun <T> onMainThread(block: () -> T): T {
-        val task = FutureTask(block)
+        val task = FutureTask {
+            check(dashboardActive && !destroyed && !isFinishing) { "Dashboard is not active" }
+            block()
+        }
         handler.post(task)
-        return task.get(5, TimeUnit.SECONDS)
+        try {
+            return task.get(5, TimeUnit.SECONDS)
+        } finally {
+            // A request that times out or is interrupted must not execute later from the queue.
+            task.cancel(false)
+            handler.removeCallbacks(task)
+        }
     }
 
     private fun scheduleReload() {
@@ -526,6 +666,13 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     private fun padForKeyboard(root: View) {
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
             view.updatePadding(bottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom)
+            val safe = insets.getInsets(WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.systemGestures())
+            val params = binding.adminCorner.layoutParams as FrameLayout.LayoutParams
+            if (params.topMargin != safe.top || params.rightMargin != safe.right) {
+                params.topMargin = safe.top
+                params.rightMargin = safe.right
+                binding.adminCorner.layoutParams = params
+            }
             insets
         }
     }
@@ -533,5 +680,6 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     private companion object {
         const val TAG = "KioskActivity"
         const val LOAD_TIMEOUT_MS = 60_000L
+        const val LOCK_TASK_STARTED = "lock_task_started"
     }
 }

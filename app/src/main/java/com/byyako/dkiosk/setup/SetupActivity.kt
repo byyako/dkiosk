@@ -3,6 +3,7 @@ package com.byyako.dkiosk.setup
 import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.isVisible
 import com.byyako.dkiosk.KioskActivity
 import com.byyako.dkiosk.R
 import com.byyako.dkiosk.config.KioskPrefs
@@ -12,7 +13,7 @@ import com.byyako.dkiosk.settings.readNewPin
 import com.byyako.dkiosk.ui.padForSystemBars
 import com.byyako.dkiosk.web.normalizeHomeUrl
 
-/** First run: pick the page and a PIN for the settings. Everything else has working defaults. */
+/** First run: pick the page and optional administrator PIN. Everything else has working defaults. */
 class SetupActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivitySetupBinding
@@ -26,6 +27,9 @@ class SetupActivity : AppCompatActivity() {
         val prefs = KioskPrefs(this)
         prefs.homeUrl?.let { binding.url.setText(it) }
         binding.url.setSelection(binding.url.length())
+        binding.requirePin.setOnCheckedChangeListener { _, required ->
+            binding.newPin.root.isVisible = required
+        }
         binding.start.setOnClickListener { finishSetup(prefs) }
     }
 
@@ -36,10 +40,10 @@ class SetupActivity : AppCompatActivity() {
             binding.urlLayout.error = getString(R.string.setup_invalid_url)
             return
         }
-        val pin = binding.newPin.readNewPin() ?: return
-
-        prefs.homeUrl = url
-        prefs.pinHash = Pin.hash(pin)
+        val hash = if (binding.requirePin.isChecked) {
+            Pin.hash(binding.newPin.readNewPin() ?: return)
+        } else null
+        prefs.completeSetup(url, hash)
         startActivity(Intent(this, KioskActivity::class.java))
         finish()
     }

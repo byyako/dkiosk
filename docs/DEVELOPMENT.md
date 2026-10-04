@@ -9,6 +9,7 @@ setup and settings screens. Design decisions and their reasons are in [DESIGN.md
 app/src/main/java/com/byyako/dkiosk/
   KioskActivity.kt      the kiosk: WebView, immersive mode, wiring for everything below
   config/               KioskPrefs, every setting in one place
+  lockdown/             optional Device Owner / allowlisted lock task mode
   web/                  navigation rules, certificate pins, login and certificate prompts, WebViewClient
   recovery/             error screen, retry backoff, hang watchdog, idle timer
   screen/               screen schedule, blackout, burn-in shift
@@ -109,5 +110,24 @@ node testsite/cdp.mjs "document.getElementById('tel').click()"
 | API | `adb forward tcp:8765 tcp:8765`, then `curl -H "Authorization: Bearer $TOKEN" localhost:8765/status`; `POST /url` with `"home": true` is the quickest way to switch the home page |
 | First run again | `adb shell pm clear com.byyako.dkiosk.debug` |
 
+For optional PIN, corner gesture and managed lockdown acceptance checks, see
+[MANAGED-KIOSK.md](MANAGED-KIOSK.md). Provisioning belongs on a dedicated test device and is separate
+from normal build/install testing.
+
 Settings can be written directly in debug builds with
 `adb shell run-as com.byyako.dkiosk.debug` (file `shared_prefs/kiosk.xml`) to skip the UI.
+
+## Validation checkpoint: 2026-10-03
+
+The optional PIN, corner gesture and managed lockdown changes pass `assembleDebug
+testDebugUnitTest lintDebug` (82 JVM tests; lint only reports the deliberately deferred targetSdk).
+On a OnePlus 6T (LineageOS, Android 15, not provisioned) the debug build passed: first-run setup
+with a PIN, the corner gesture in portrait and landscape and over the error screen (drags and long
+presses don't count, progress resets), wrong-PIN lockout, turning PIN protection off and on, the
+API pausing in settings and in the background, Bearer token checks, Exit kiosk, blocked links,
+self-signed certificate trust behind the PIN and basic auth. Settings written in the 1.0.0 format
+(home page and PIN hash only) skip setup and keep requiring the PIN.
+
+Not yet checked on a device: Device Owner provisioning and everything in lockdown, and reboot with
+home-screen mode. Complete the acceptance checks in
+[MANAGED-KIOSK.md](MANAGED-KIOSK.md) before releasing or using this on a public device.

@@ -5,7 +5,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.byyako.dkiosk.databinding.ActivitySettingsBinding
 import com.byyako.dkiosk.ui.padForSystemBars
 
-/** Settings, reached from the kiosk with the corner taps and the PIN. */
+/** Settings, reached from the kiosk with the corner gesture and optional PIN. */
 class SettingsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -25,5 +25,6 @@ class SettingsActivity : AppCompatActivity() {
     companion object {
         /** Result extra: the page should be reloaded, e.g. because site data was cleared. */
         const val EXTRA_RELOAD = "reload"
+        const val EXTRA_EXIT = "exit"
     }
 }
