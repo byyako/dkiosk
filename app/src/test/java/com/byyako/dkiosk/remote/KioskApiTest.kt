@@ -52,6 +52,7 @@ class KioskApiTest {
         assertEquals(401, call("GET", "/status", auth = "Bearer wrong").status)
         assertEquals(401, call("GET", "/status", auth = "Bearer ").status)
         assertEquals(401, call("GET", "/status", auth = "Basic c2VjcmV0LXRva2Vu").status)
+        assertEquals(401, call("GET", "/status", auth = "secret-token").status)
         assertTrue(kiosk.calls.isEmpty())
     }
 
@@ -60,6 +61,11 @@ class KioskApiTest {
         val response = call("GET", "/status")
         assertEquals(200, response.status)
         assertEquals("on", response.body.getString("screen"))
+    }
+
+    @Test
+    fun bearerSchemeIsCaseInsensitive() {
+        assertEquals(200, call("GET", "/status", auth = "bearer secret-token").status)
     }
 
     @Test

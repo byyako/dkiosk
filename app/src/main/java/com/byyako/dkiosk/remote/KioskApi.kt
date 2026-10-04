@@ -78,7 +78,10 @@ class KioskApi(private val token: String, private val control: KioskControl) {
     }
 
     private fun isAuthorized(request: HttpRequest): Boolean {
-        val given = request.header("Authorization")?.removePrefix("Bearer ")?.trim() ?: return false
+        val authorization = request.header("Authorization") ?: return false
+        val parts = authorization.split(' ', limit = 2)
+        if (parts.size != 2 || !parts[0].equals("Bearer", ignoreCase = true)) return false
+        val given = parts[1].trim()
         // Constant-time, so response timing doesn't leak how much of a guess was right.
         return MessageDigest.isEqual(given.toByteArray(), token.toByteArray())
     }
