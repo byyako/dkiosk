@@ -147,8 +147,18 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     // Wall-clock time of the last touch, kept as is so Home Assistant sees it change only on a touch.
     private var lastTouchTime: Instant = Instant.now().truncatedTo(ChronoUnit.SECONDS)
 
+    /** The page the kiosk returns to: the home page, or the night page during its hours. */
     private val homeUrl: String
-        get() = prefs.homeUrl.orEmpty()
+        get() = prefs.activeHomeUrl.orEmpty()
+
+    // Switches between the home and night pages when their hours change, once nobody is using it.
+    private val homeSwitch = object : Runnable {
+        override fun run() {
+            val busy = SystemClock.uptimeMillis() - idleTimer.lastTouchAt < 60_000 || temporaryPage != null
+            if (homeUrl != loadedHomeUrl && !busy) loadHome()
+            handler.postDelayed(this, 60_000)
+        }
+    }
 
     private val openSettings = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.data?.getBooleanExtra(SettingsActivity.EXTRA_EXIT, false) == true) {
@@ -315,6 +325,8 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         startMqtt()
         startWakeSensors()
         onUserActivity() // Coming back, e.g. from the settings, counts as using it.
+        handler.removeCallbacks(homeSwitch)
+        handler.postDelayed(homeSwitch, 60_000)
         try {
             if (prefs.lockdownEnabled) {
                 if (!lockdown.start(this) && !lockdownWarningShown) {
@@ -349,6 +361,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
             soundPlayer.stop()
             stopWakeSensors()
             handler.removeCallbacks(inactivityCheck)
+            handler.removeCallbacks(homeSwitch)
             screensaver.hide()
             dimmer.dimmed = false
         }
@@ -561,7 +574,9 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
 
     // Page callbacks
 
-    override fun navigationPolicy() = NavigationPolicy(homeUrl, prefs.allowedHosts, prefs.restrictNavigation)
+    // The allowed sites follow the home page itself; the night page has to be on one of them.
+    override fun navigationPolicy() =
+        NavigationPolicy(prefs.homeUrl.orEmpty(), prefs.allowedHosts, prefs.restrictNavigation)
 
     override fun onNavigationBlocked(verdict: Verdict, pageLost: Boolean): Boolean {
         val message = when (verdict) {
@@ -759,7 +774,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
 
     private fun applySettings() {
         applyWebSettings(webView)
-        if (prefs.homeUrl != loadedHomeUrl) {
+        if (homeUrl != loadedHomeUrl) {
             loadHome()
         } else if (prefs.userAgent != appliedUserAgent) {
             // A new user agent only takes effect on the next load.

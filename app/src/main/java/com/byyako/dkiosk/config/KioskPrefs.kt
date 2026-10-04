@@ -3,7 +3,9 @@ package com.byyako.dkiosk.config
 import android.content.Context
 import android.os.Build
 import androidx.core.content.edit
+import com.byyako.dkiosk.screen.ScreenSchedule
 import java.time.DayOfWeek
+import java.time.LocalDateTime
 import java.time.LocalTime
 import java.util.UUID
 
@@ -45,6 +47,24 @@ class KioskPrefs(context: Context) {
     }
 
     // Page
+
+    val nightPageEnabled: Boolean
+        get() = prefs.getBoolean(NIGHT_PAGE_ENABLED, false)
+
+    val nightPageUrl: String?
+        get() = prefs.getString(NIGHT_PAGE_URL, null)?.trim()?.ifEmpty { null }
+
+    val nightPageFrom: LocalTime
+        get() = parseTime(prefs.getString(NIGHT_PAGE_FROM, null)) ?: DEFAULT_OFF
+
+    val nightPageUntil: LocalTime
+        get() = parseTime(prefs.getString(NIGHT_PAGE_UNTIL, null)) ?: DEFAULT_ON
+
+    /** The page to show right now: the night page during its hours, otherwise the home page. */
+    val activeHomeUrl: String?
+        get() = activeHome(
+            homeUrl, nightPageUrl.takeIf { nightPageEnabled }, nightPageFrom, nightPageUntil, LocalDateTime.now(),
+        )
 
     val restrictNavigation: Boolean
         get() = prefs.getBoolean(RESTRICT_NAVIGATION, true)
@@ -195,6 +215,10 @@ class KioskPrefs(context: Context) {
         const val SETUP_COMPLETE = "setup_complete"
         const val LOCKDOWN_ENABLED = "lockdown_enabled"
         const val RESTRICT_NAVIGATION = "restrict_navigation"
+        const val NIGHT_PAGE_ENABLED = "night_page_enabled"
+        const val NIGHT_PAGE_URL = "night_page_url"
+        const val NIGHT_PAGE_FROM = "night_page_from"
+        const val NIGHT_PAGE_UNTIL = "night_page_until"
         const val ALLOWED_HOSTS = "allowed_hosts"
         const val ALLOW_ZOOM = "allow_zoom"
         const val USER_AGENT = "user_agent"
@@ -235,6 +259,13 @@ class KioskPrefs(context: Context) {
         const val DEFAULT_API_PORT = 8765
         val DEFAULT_OFF: LocalTime = LocalTime.of(22, 0)
         val DEFAULT_ON: LocalTime = LocalTime.of(7, 0)
+
+        /** [night] between [from] and [until] (which may cross midnight), otherwise [home]. */
+        fun activeHome(home: String?, night: String?, from: LocalTime, until: LocalTime, now: LocalDateTime): String? {
+            if (night == null) return home
+            val inNight = ScreenSchedule(from, until, DayOfWeek.entries.toSet()).isOffPeriod(now)
+            return if (inNight) night else home
+        }
 
         /** "mqtt://broker.local:1883/" becomes "broker.local"; the port has its own setting. */
         fun cleanMqttHost(value: String?): String? {

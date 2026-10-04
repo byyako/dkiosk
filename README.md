@@ -22,6 +22,7 @@ For public devices, optional [managed lockdown](docs/MANAGED-KIOSK.md) blocks An
   comes back), rebuilds the browser if it crashes, reloads a page that has frozen, and can go back to
   the home page after a period without touches or reload on a timer.
 - **Screen schedule**: black out the screen overnight or on chosen days; a touch wakes it.
+- **Night page**: optionally show a different page, such as a darker dashboard, at night.
 - **Screensaver and sleep**: after a while without use, show a drifting clock, the dashboard dimmed
   or another page, and later turn the screen off.
 - **Wake on approach**: optionally wake when the camera sees movement or something comes near the

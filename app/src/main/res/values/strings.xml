@@ -89,6 +89,13 @@
     <string name="restrict_navigation">Stay on these sites</string>
     <string name="restrict_navigation_on">Links to other sites are blocked</string>
     <string name="restrict_navigation_off">Any site can be opened</string>
+    <string name="night_page_enabled">Different page at night</string>
+    <string name="night_page_enabled_summary">Shows another page during the hours below, such as a dark or simpler dashboard</string>
+    <string name="night_page_url">Night page</string>
+    <string name="night_page_url_help">An address on the home page\'s site or another allowed site.</string>
+    <string name="night_page_url_missing">Not set; the home page is shown all day</string>
+    <string name="night_page_from">Night page from</string>
+    <string name="night_page_until">Night page until</string>
     <string name="allow_autoplay">Autoplay with sound</string>
     <string name="allow_autoplay_summary">Pages can start video and audio with sound without a tap. Muted autoplay always works.</string>
     <string name="allow_zoom">Allow pinch to zoom</string>

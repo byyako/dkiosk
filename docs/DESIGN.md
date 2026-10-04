@@ -15,6 +15,11 @@ optional, independently of managed lockdown. Existing installs preserve their PI
 
 ## Navigation
 
+The night page replaces the home page during its hours, for everything that returns home (idle,
+retries, the Home button). The allowed sites still come from the home page itself, so the night
+page has to be on one of them. The switch happens within a minute of the hours changing, but not
+while someone is using the screen or a temporary page is up.
+
 Top-level pages must be on the home page's host (any port or scheme, `www.` ignored) or on an extra
 allowed host. Extra hosts exist mainly for single sign-on pages; `*.example.com` covers a domain and
 its subdomains. Frames are not restricted, because dashboards embed charts, cameras and players from

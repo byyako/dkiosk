@@ -67,6 +67,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
         setUpScheduleDays()
         setUpBrightness()
         setUpScreensaver()
+        setUpNightPage()
         setUpWakeSensors()
         setUpApi()
         setUpMqtt()
@@ -177,12 +178,26 @@ class SettingsFragment : PreferenceFragmentCompat() {
     private fun setUpScreensaver() {
         val url = findPreference<EditTextPreference>(KioskPrefs.SCREENSAVER_URL) ?: return
         url.isEnabled = prefs.screensaverMode == Screensaver.Mode.PAGE.key
-        url.setOnBindEditTextListener {
+        setUpAllowedUrl(url) { prefs.screensaverUrl ?: getString(R.string.screensaver_url_missing) }
+        findPreference<ListPreference>(KioskPrefs.SCREENSAVER_MODE)?.setOnPreferenceChangeListener { _, mode ->
+            url.isEnabled = mode == Screensaver.Mode.PAGE.key
+            true
+        }
+    }
+
+    private fun setUpNightPage() {
+        val url = findPreference<EditTextPreference>(KioskPrefs.NIGHT_PAGE_URL) ?: return
+        setUpAllowedUrl(url) { prefs.nightPageUrl ?: getString(R.string.night_page_url_missing) }
+    }
+
+    /** An address field that only accepts pages on the kiosk's allowed sites, saved in its clean form. */
+    private fun setUpAllowedUrl(pref: EditTextPreference, summary: () -> String) {
+        pref.setOnBindEditTextListener {
             it.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
             it.setSelection(it.length())
         }
-        url.setSummaryProvider { prefs.screensaverUrl ?: getString(R.string.screensaver_url_missing) }
-        url.setOnPreferenceChangeListener { _, value ->
+        pref.setSummaryProvider { summary() }
+        pref.setOnPreferenceChangeListener { _, value ->
             val text = (value as String).trim()
             if (text.isEmpty()) return@setOnPreferenceChangeListener true
             val normalized = normalizeHomeUrl(text)
@@ -198,15 +213,11 @@ class SettingsFragment : PreferenceFragmentCompat() {
                     false
                 }
                 normalized != text -> {
-                    url.text = normalized
+                    pref.text = normalized
                     false
                 }
                 else -> true
             }
-        }
-        findPreference<ListPreference>(KioskPrefs.SCREENSAVER_MODE)?.setOnPreferenceChangeListener { _, mode ->
-            url.isEnabled = mode == Screensaver.Mode.PAGE.key
-            true
         }
     }
 

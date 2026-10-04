@@ -3,6 +3,8 @@ package com.byyako.dkiosk.config
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.time.LocalDateTime
+import java.time.LocalTime
 
 class KioskPrefsTest {
 
@@ -15,6 +17,18 @@ class KioskPrefsTest {
         assertNull(KioskPrefs.cleanMqttHost("  "))
         assertNull(KioskPrefs.cleanMqttHost("mqtt://"))
         assertNull(KioskPrefs.cleanMqttHost(null))
+    }
+
+    @Test
+    fun nightPageDuringItsHours() {
+        val from = LocalTime.of(22, 0)
+        val until = LocalTime.of(7, 0)
+        fun at(hour: Int) = KioskPrefs.activeHome("day", "night", from, until, LocalDateTime.of(2026, 10, 4, hour, 30))
+        assertEquals("night", at(23))
+        assertEquals("night", at(3))
+        assertEquals("day", at(7))
+        assertEquals("day", at(12))
+        assertEquals("day", KioskPrefs.activeHome("day", null, from, until, LocalDateTime.of(2026, 10, 4, 23, 0)))
     }
 
     @Test

@@ -7,6 +7,26 @@
             app:key="home_url"
             app:title="@string/home_url"
             app:useSimpleSummaryProvider="true" />
+        <SwitchPreferenceCompat
+            app:defaultValue="false"
+            app:key="night_page_enabled"
+            app:summary="@string/night_page_enabled_summary"
+            app:title="@string/night_page_enabled" />
+        <EditTextPreference
+            app:dependency="night_page_enabled"
+            app:dialogMessage="@string/night_page_url_help"
+            app:key="night_page_url"
+            app:title="@string/night_page_url" />
+        <com.byyako.dkiosk.settings.TimePreference
+            app:defaultValue="22:00"
+            app:dependency="night_page_enabled"
+            app:key="night_page_from"
+            app:title="@string/night_page_from" />
+        <com.byyako.dkiosk.settings.TimePreference
+            app:defaultValue="07:00"
+            app:dependency="night_page_enabled"
+            app:key="night_page_until"
+            app:title="@string/night_page_until" />
         <EditTextPreference
             app:dialogMessage="@string/allowed_hosts_help"
             app:key="allowed_hosts"
