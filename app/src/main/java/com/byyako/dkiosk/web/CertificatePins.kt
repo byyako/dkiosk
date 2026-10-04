@@ -1,6 +1,17 @@
 package com.byyako.dkiosk.web
 
+import android.net.http.SslCertificate
+import android.os.Build
 import java.security.MessageDigest
+
+/** The certificate as DER bytes, for fingerprinting. */
+fun SslCertificate.derBytes(): ByteArray? =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        x509Certificate?.encoded
+    } else {
+        // Before API 29 the raw certificate is only reachable through its saved-state bundle.
+        SslCertificate.saveState(this).getByteArray("x509-certificate")
+    }
 
 /** SHA-256 fingerprint as colon-separated uppercase hex, the format browsers display. */
 fun sha256Fingerprint(der: ByteArray): String =

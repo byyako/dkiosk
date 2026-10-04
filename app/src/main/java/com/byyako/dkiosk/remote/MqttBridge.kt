@@ -18,6 +18,7 @@ class MqttBridge(
     private val ha: HomeAssistant,
     private val control: KioskControl,
     private val screenshotsAllowed: () -> Boolean,
+    private val motionEnabled: () -> Boolean,
 ) : MqttClient.Listener {
 
     class Settings(
@@ -94,7 +95,7 @@ class MqttBridge(
     }
 
     private fun announce() = run {
-        ha.discovery(screenshotsAllowed()).forEach { (topic, config) ->
+        ha.discovery(screenshotsAllowed(), motionEnabled()).forEach { (topic, config) ->
             client.publish(topic, config.toByteArray(), retain = true)
         }
         publishState()

@@ -56,6 +56,62 @@
         <item>30</item>
     </string-array>
 
+    <string-array name="screensaver_entries">
+        <item>Never</item>
+        <item>After 1 minute</item>
+        <item>After 2 minutes</item>
+        <item>After 5 minutes</item>
+        <item>After 10 minutes</item>
+        <item>After 30 minutes</item>
+    </string-array>
+    <string-array name="screensaver_values" translatable="false">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>5</item>
+        <item>10</item>
+        <item>30</item>
+    </string-array>
+
+    <string-array name="screensaver_mode_entries">
+        <item>Clock</item>
+        <item>Dimmed dashboard</item>
+        <item>Another page</item>
+    </string-array>
+    <string-array name="screensaver_mode_values" translatable="false">
+        <item>clock</item>
+        <item>dim</item>
+        <item>page</item>
+    </string-array>
+
+    <string-array name="screen_off_entries">
+        <item>Never</item>
+        <item>After 5 minutes</item>
+        <item>After 10 minutes</item>
+        <item>After 30 minutes</item>
+        <item>After 1 hour</item>
+        <item>After 2 hours</item>
+    </string-array>
+    <string-array name="screen_off_values" translatable="false">
+        <item>0</item>
+        <item>5</item>
+        <item>10</item>
+        <item>30</item>
+        <item>60</item>
+        <item>120</item>
+    </string-array>
+
+    <string-array name="motion_sensitivity_entries">
+        <item>Low</item>
+        <item>Medium</item>
+        <item>High</item>
+    </string-array>
+    <string-array name="motion_sensitivity_values" translatable="false">
+        <item>low</item>
+        <item>medium</item>
+        <item>high</item>
+    </string-array>
+
     <string-array name="brightness_entries">
         <item>Android\'s setting</item>
         <item>10%</item>

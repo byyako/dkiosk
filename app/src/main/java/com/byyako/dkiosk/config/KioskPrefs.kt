@@ -111,6 +111,31 @@ class KioskPrefs(context: Context) {
         get() = parseBrightness(prefs.getString(BRIGHTNESS, null))
         set(value) = prefs.edit { putString(BRIGHTNESS, value?.toString() ?: BRIGHTNESS_AUTO) }
 
+    /** Start the screensaver after this long without a touch or motion; 0 turns it off. */
+    val screensaverMinutes: Int
+        get() = prefs.getString(SCREENSAVER_MINUTES, "0")?.toIntOrNull() ?: 0
+
+    /** "clock", "dim" or "page". */
+    val screensaverMode: String
+        get() = prefs.getString(SCREENSAVER_MODE, "clock") ?: "clock"
+
+    val screensaverUrl: String?
+        get() = prefs.getString(SCREENSAVER_URL, null)?.trim()?.ifEmpty { null }
+
+    /** Turn the screen off after this long without a touch or motion; 0 turns it off. */
+    val screenOffMinutes: Int
+        get() = prefs.getString(SCREEN_OFF_MINUTES, "0")?.toIntOrNull() ?: 0
+
+    val wakeOnProximity: Boolean
+        get() = prefs.getBoolean(WAKE_PROXIMITY, false)
+
+    val wakeOnMotion: Boolean
+        get() = prefs.getBoolean(WAKE_MOTION, false)
+
+    /** "low", "medium" or "high". */
+    val motionSensitivity: String
+        get() = prefs.getString(MOTION_SENSITIVITY, "medium") ?: "medium"
+
     /** How long a touch wakes the screen during an off period. */
     val wakeMinutes: Int
         get() = prefs.getString(WAKE_MINUTES, "5")?.toIntOrNull() ?: 5
@@ -185,6 +210,13 @@ class KioskPrefs(context: Context) {
         const val SCHEDULE_ON = "schedule_on"
         const val SCHEDULE_DAYS = "schedule_days"
         const val WAKE_MINUTES = "wake_minutes"
+        const val SCREENSAVER_MINUTES = "screensaver_minutes"
+        const val SCREENSAVER_MODE = "screensaver_mode"
+        const val SCREENSAVER_URL = "screensaver_url"
+        const val SCREEN_OFF_MINUTES = "screen_off_minutes"
+        const val WAKE_PROXIMITY = "wake_proximity"
+        const val WAKE_MOTION = "wake_motion"
+        const val MOTION_SENSITIVITY = "motion_sensitivity"
         const val BRIGHTNESS = "screen_brightness"
         const val BRIGHTNESS_AUTO = "auto"
         const val API_ENABLED = "api_enabled"

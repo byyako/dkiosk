@@ -53,7 +53,12 @@ import com.byyako.dkiosk.remote.HomeAssistant
 import com.byyako.dkiosk.remote.KioskControl
 import com.byyako.dkiosk.remote.MqttBridge
 import com.byyako.dkiosk.screen.PixelShift
+import com.byyako.dkiosk.screen.CameraMotion
+import com.byyako.dkiosk.screen.Inactivity
+import com.byyako.dkiosk.screen.MotionDetector
+import com.byyako.dkiosk.screen.ProximityWake
 import com.byyako.dkiosk.screen.ScreenDimmer
+import com.byyako.dkiosk.screen.Screensaver
 import com.byyako.dkiosk.screen.Screenshot
 import com.byyako.dkiosk.settings.PinPrompt
 import com.byyako.dkiosk.settings.HomeApp
@@ -65,6 +70,7 @@ import com.byyako.dkiosk.web.KioskChromeClient
 import com.byyako.dkiosk.web.KioskWebViewClient
 import com.byyako.dkiosk.web.NavigationPolicy
 import com.byyako.dkiosk.web.PagePrompts
+import com.byyako.dkiosk.web.ScreensaverWebViewClient
 import com.byyako.dkiosk.web.SiteFeature
 import com.byyako.dkiosk.web.SitePermissions
 import com.byyako.dkiosk.web.TemporaryPage
@@ -94,6 +100,10 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     private lateinit var dimmer: ScreenDimmer
     private lateinit var pixelShift: PixelShift
     private lateinit var speaker: Speaker
+    private lateinit var certPins: CertificatePins
+    private lateinit var screensaver: Screensaver
+    private var proximity: ProximityWake? = null
+    private var cameraMotion: CameraMotion? = null
     private val soundPlayer = SoundPlayer()
 
     private val handler = Handler(Looper.getMainLooper())
@@ -178,6 +188,15 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     private val rendererRetry = Runnable { loadHome() }
     private val hideMessage = Runnable { binding.message.isVisible = false }
 
+    // Touches and motion: the screensaver and the inactivity screen-off count from the last of them.
+    private var lastActivityAt = SystemClock.uptimeMillis()
+    private val inactivityCheck = Runnable { updateInactivity() }
+    private var motionSeen = false
+    private val motionOver = Runnable {
+        motionSeen = false
+        mqttBridge?.stateChanged()
+    }
+
     // A page the API opened for a while, such as a doorbell camera.
     private var temporaryPage: TemporaryPage? = null
     private val endTemporaryPage = object : Runnable {
@@ -225,7 +244,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         }
 
         pinPrompt = PinPrompt(this, prefs)
-        val certPins = CertificatePins(load = { prefs.trustedCerts }, save = { prefs.trustedCerts = it })
+        certPins = CertificatePins(load = { prefs.trustedCerts }, save = { prefs.trustedCerts = it })
         val sitePermissions = SitePermissions(load = { prefs.sitePermissions }, save = { prefs.sitePermissions = it })
         prompts = PagePrompts(this, certPins, sitePermissions, ::navigationPolicy, pinPrompt::ask, ::askAndroid)
         chromeClient = KioskChromeClient(
@@ -243,7 +262,12 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         watchdog = Watchdog({ webView }, { chromeClient.isDialogOpen }, ::onPageUnresponsive)
         idleTimer = IdleTimer(::onIdle)
         dimmer = ScreenDimmer(binding.blackout, window, prefs)
-        dimmer.onChange = { mqttBridge?.stateChanged() }
+        dimmer.onChange = {
+            // The screen lighting up or going dark changes what the camera sees; that isn't motion.
+            cameraMotion?.pause(SCREEN_CHANGE_SETTLE_MS)
+            mqttBridge?.stateChanged()
+        }
+        screensaver = Screensaver(binding.screensaver, ::createScreensaverPage)
         pixelShift = PixelShift(binding.webContainer)
         speaker = Speaker(this)
         binding.message.setOnClickListener { hideMessage.run() }
@@ -289,6 +313,8 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         dimmer.start()
         applyApiSettings()
         startMqtt()
+        startWakeSensors()
+        onUserActivity() // Coming back, e.g. from the settings, counts as using it.
         try {
             if (prefs.lockdownEnabled) {
                 if (!lockdown.start(this) && !lockdownWarningShown) {
@@ -321,6 +347,10 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
             dimmer.stop()
             speaker.stop()
             soundPlayer.stop()
+            stopWakeSensors()
+            handler.removeCallbacks(inactivityCheck)
+            screensaver.hide()
+            dimmer.dimmed = false
         }
         // Write cookies to disk now so a login survives the process being killed in the background.
         CookieManager.getInstance().flush()
@@ -355,6 +385,8 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
             dimmer.stop()
             speaker.shutdown()
             soundPlayer.stop()
+            stopWakeSensors()
+            screensaver.hide()
             pixelShift.setEnabled(false)
             binding.webContainer.removeView(webView)
             webView.destroy()
@@ -374,9 +406,10 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
             idleTimer.onTouch()
             lastTouchTime = Instant.now().truncatedTo(ChronoUnit.SECONDS)
             reportTouch()
-            // The touch that wakes a dark screen shouldn't also press something on the page.
-            swallowGesture = dimmer.isDark
+            // The touch that wakes a dark screen or ends the screensaver shouldn't also press something.
+            swallowGesture = dimmer.isDark || screensaver.isShowing
             dimmer.onTouch()
+            onUserActivity()
             binding.adminCorner.getLocationOnScreen(cornerLocation)
             cornerBounds.set(
                 cornerLocation[0], cornerLocation[1],
@@ -408,6 +441,86 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
             return true
         }
         return super.dispatchTouchEvent(event)
+    }
+
+    /** A touch, motion, or a command meant to be seen: the screen is in use. */
+    private fun onUserActivity() {
+        lastActivityAt = SystemClock.uptimeMillis()
+        updateInactivity()
+    }
+
+    private fun updateInactivity() {
+        handler.removeCallbacks(inactivityCheck)
+        if (!dashboardActive) return
+        val inactivity = Inactivity(prefs.screensaverMinutes * 60_000L, prefs.screenOffMinutes * 60_000L)
+        val now = SystemClock.uptimeMillis()
+        val mode = inactivity.mode(now, lastActivityAt)
+        val wasShowing = screensaver.isShowing
+        val wasIdleOff = dimmer.idleOff
+        if (mode == Inactivity.Mode.SCREENSAVER) {
+            val url = prefs.screensaverUrl
+            var saverMode = Screensaver.Mode.of(prefs.screensaverMode)
+            if (saverMode == Screensaver.Mode.PAGE && url == null) saverMode = Screensaver.Mode.CLOCK
+            screensaver.show(saverMode, url)
+            dimmer.dimmed = saverMode == Screensaver.Mode.DIM
+        } else {
+            screensaver.hide()
+            dimmer.dimmed = false
+        }
+        dimmer.idleOff = mode == Inactivity.Mode.OFF
+        if (wasShowing != screensaver.isShowing || wasIdleOff != dimmer.idleOff) {
+            cameraMotion?.pause(SCREEN_CHANGE_SETTLE_MS)
+            mqttBridge?.stateChanged()
+        }
+        inactivity.nextChangeIn(now, lastActivityAt)?.let { handler.postDelayed(inactivityCheck, it) }
+    }
+
+    private fun startWakeSensors() {
+        if (prefs.wakeOnProximity && proximity == null) {
+            proximity = ProximityWake(this) { onMotion() }.also { it.start() }
+        }
+        if (prefs.wakeOnMotion && cameraMotion == null) {
+            val sensitivity = when (prefs.motionSensitivity) {
+                "low" -> MotionDetector.Sensitivity.LOW
+                "high" -> MotionDetector.Sensitivity.HIGH
+                else -> MotionDetector.Sensitivity.MEDIUM
+            }
+            cameraMotion = CameraMotion(this, sensitivity) { runOnUiThread(::onMotion) }.also { it.start() }
+        }
+    }
+
+    private fun stopWakeSensors() {
+        proximity?.stop()
+        proximity = null
+        cameraMotion?.stop()
+        cameraMotion = null
+    }
+
+    /** Someone is near: wake the screen like a touch would, without pressing anything. */
+    private fun onMotion() {
+        if (destroyed || !dashboardActive) return
+        dimmer.onTouch()
+        onUserActivity()
+        if (!motionSeen) {
+            motionSeen = true
+            mqttBridge?.stateChanged()
+        }
+        handler.removeCallbacks(motionOver)
+        handler.postDelayed(motionOver, MOTION_HOLD_MS)
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun createScreensaverPage(): WebView = WebView(this).apply {
+        setBackgroundColor(Color.BLACK)
+        settings.javaScriptEnabled = true
+        settings.domStorageEnabled = true
+        settings.useWideViewPort = true
+        settings.loadWithOverviewMode = true
+        settings.userAgentString = prefs.userAgent
+        webViewClient = ScreensaverWebViewClient(::navigationPolicy, certPins) {
+            // Its renderer is gone; a fresh one is made the next time the screensaver starts.
+            handler.post { if (screensaver.mode == Screensaver.Mode.PAGE) screensaver.hide() }
+        }
     }
 
     /** Home Assistant's "Last touch" sensor, updated at most every 30 seconds while someone is using it. */
@@ -701,7 +814,11 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
             password = prefs.mqttPassword,
             clientId = "dkiosk-$deviceId",
         )
-        mqttBridge = MqttBridge(settings, homeAssistant, remoteControl) { prefs.apiScreenshots }.also { it.start() }
+        mqttBridge = MqttBridge(
+            settings, homeAssistant, remoteControl,
+            screenshotsAllowed = { prefs.apiScreenshots },
+            motionEnabled = { prefs.wakeOnMotion || prefs.wakeOnProximity },
+        ).also { it.start() }
     }
 
     private fun versionName(): String = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty()
@@ -722,6 +839,8 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
                 .put("brightness", prefs.brightness ?: KioskPrefs.BRIGHTNESS_AUTO)
                 .put("volume", volumePercent())
                 .put("temporaryPage", temporaryPage != null)
+                .put("screensaver", screensaver.isShowing)
+                .put("motion", motionSeen)
                 .put("lastTouch", lastTouchTime.toString())
                 .put("version", versionName())
         }
@@ -751,7 +870,10 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
             }
         }
 
-        override fun setScreen(on: Boolean) = onMainThread { dimmer.turn(on) }
+        override fun setScreen(on: Boolean) = onMainThread {
+            dimmer.turn(on)
+            if (on) onUserActivity()
+        }
 
         override fun setBrightness(percent: Int?) = onMainThread {
             prefs.brightness = percent
@@ -775,6 +897,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
             binding.message.isVisible = true
             handler.removeCallbacks(hideMessage)
             if (seconds > 0) handler.postDelayed(hideMessage, seconds * 1000L)
+            onUserActivity()
             // A message nobody can see is no use, so it lights a dark screen while it's up.
             dimmer.wakeFor(if (seconds > 0) seconds * 1000L else prefs.wakeMinutes * 60_000L)
         }
@@ -791,6 +914,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         temporaryPage = temporaryPage?.extendTo(returnAt) ?: TemporaryPage(webView.url, returnAt)
         load(url)
         dimmer.wakeFor(durationMs)
+        onUserActivity()
         handler.removeCallbacks(endTemporaryPage)
         handler.postDelayed(endTemporaryPage, durationMs)
     }
@@ -881,5 +1005,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         const val TAG = "KioskActivity"
         const val LOAD_TIMEOUT_MS = 60_000L
         const val LOCK_TASK_STARTED = "lock_task_started"
+        const val SCREEN_CHANGE_SETTLE_MS = 3_000L
+        const val MOTION_HOLD_MS = 30_000L
     }
 }

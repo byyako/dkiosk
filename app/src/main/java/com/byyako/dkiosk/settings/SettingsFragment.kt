@@ -1,10 +1,12 @@
 package com.byyako.dkiosk.settings
 
+import android.Manifest
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.text.InputType
@@ -14,6 +16,7 @@ import android.webkit.CookieManager
 import android.webkit.WebStorage
 import android.webkit.WebViewDatabase
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AlertDialog
 import androidx.core.net.toUri
@@ -30,10 +33,14 @@ import com.byyako.dkiosk.databinding.ViewNewPinBinding
 import com.byyako.dkiosk.lockdown.Lockdown
 import com.byyako.dkiosk.remote.KioskApi
 import com.byyako.dkiosk.remote.MqttStatus
+import com.byyako.dkiosk.screen.ProximityWake
+import com.byyako.dkiosk.screen.Screensaver
 import com.byyako.dkiosk.remote.localIpAddress
 import com.byyako.dkiosk.ui.panForKeyboard
+import com.byyako.dkiosk.web.NavigationPolicy
 import com.byyako.dkiosk.web.SitePermissions
 import com.byyako.dkiosk.web.allowedHostPattern
+import com.byyako.dkiosk.web.hostOf
 import com.byyako.dkiosk.web.normalizeHomeUrl
 import java.time.DayOfWeek
 import java.time.format.TextStyle
@@ -42,6 +49,13 @@ import java.util.Locale
 class SettingsFragment : PreferenceFragmentCompat() {
 
     private val prefs by lazy { KioskPrefs(requireContext()) }
+
+    // Motion detection needs the camera; the switch only turns on once Android allows it.
+    private val requestCamera = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            findPreference<SwitchPreferenceCompat>(KioskPrefs.WAKE_MOTION)?.isChecked = true
+        } else toast(R.string.wake_motion_denied)
+    }
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         preferenceManager.sharedPreferencesName = KioskPrefs.FILE_NAME
@@ -52,6 +66,8 @@ class SettingsFragment : PreferenceFragmentCompat() {
         setUpUserAgent()
         setUpScheduleDays()
         setUpBrightness()
+        setUpScreensaver()
+        setUpWakeSensors()
         setUpApi()
         setUpMqtt()
         setUpHomeScreen()
@@ -155,6 +171,58 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 emptySet<DayOfWeek>() -> getString(R.string.schedule_no_days)
                 else -> days.sorted().joinToString(", ") { it.getDisplayName(TextStyle.SHORT, Locale.getDefault()) }
             }
+        }
+    }
+
+    private fun setUpScreensaver() {
+        val url = findPreference<EditTextPreference>(KioskPrefs.SCREENSAVER_URL) ?: return
+        url.isEnabled = prefs.screensaverMode == Screensaver.Mode.PAGE.key
+        url.setOnBindEditTextListener {
+            it.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+            it.setSelection(it.length())
+        }
+        url.setSummaryProvider { prefs.screensaverUrl ?: getString(R.string.screensaver_url_missing) }
+        url.setOnPreferenceChangeListener { _, value ->
+            val text = (value as String).trim()
+            if (text.isEmpty()) return@setOnPreferenceChangeListener true
+            val normalized = normalizeHomeUrl(text)
+            val host = normalized?.let(::hostOf)
+            val policy = NavigationPolicy(prefs.homeUrl.orEmpty(), prefs.allowedHosts, prefs.restrictNavigation)
+            when {
+                normalized == null || host == null -> {
+                    toast(R.string.setup_invalid_url)
+                    false
+                }
+                !policy.allowsHost(host) -> {
+                    toast(getString(R.string.screensaver_url_blocked, host))
+                    false
+                }
+                normalized != text -> {
+                    url.text = normalized
+                    false
+                }
+                else -> true
+            }
+        }
+        findPreference<ListPreference>(KioskPrefs.SCREENSAVER_MODE)?.setOnPreferenceChangeListener { _, mode ->
+            url.isEnabled = mode == Screensaver.Mode.PAGE.key
+            true
+        }
+    }
+
+    private fun setUpWakeSensors() {
+        findPreference<SwitchPreferenceCompat>(KioskPrefs.WAKE_PROXIMITY)?.apply {
+            if (!ProximityWake(requireContext()) {}.isAvailable) {
+                isEnabled = false
+                setSummary(R.string.wake_proximity_missing)
+            }
+        }
+        findPreference<SwitchPreferenceCompat>(KioskPrefs.WAKE_MOTION)?.setOnPreferenceChangeListener { _, enabled ->
+            val granted = requireContext().checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+            if (enabled == true && !granted) {
+                requestCamera.launch(Manifest.permission.CAMERA)
+                false
+            } else true
         }
     }
 

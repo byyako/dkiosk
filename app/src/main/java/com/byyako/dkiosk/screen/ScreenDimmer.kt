@@ -32,6 +32,20 @@ class ScreenDimmer(private val blackout: View, private val window: Window, priva
     /** Called when the screen goes dark or lights up. */
     var onChange: (() -> Unit)? = null
 
+    /** Dark because nobody has used the screen for a while; any activity clears it. */
+    var idleOff = false
+        set(value) {
+            field = value
+            update()
+        }
+
+    /** The dimmed-dashboard screensaver is showing. */
+    var dimmed = false
+        set(value) {
+            field = value
+            update()
+        }
+
     fun start() {
         handler.removeCallbacks(tick)
         tick.run()
@@ -67,16 +81,21 @@ class ScreenDimmer(private val blackout: View, private val window: Window, priva
     }
 
     private fun update() {
-        val dark = state.isDark(SystemClock.elapsedRealtime(), scheduleSaysOff())
+        val dark = idleOff || state.isDark(SystemClock.elapsedRealtime(), scheduleSaysOff())
         val changed = dark != blackout.isVisible
         blackout.isVisible = dark
         val brightness = when {
             dark -> 0f
+            dimmed -> DIMMED_BRIGHTNESS
             else -> prefs.brightness?.let { it / 100f } ?: WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
         }
         if (window.attributes.screenBrightness != brightness) {
             window.attributes = window.attributes.apply { screenBrightness = brightness }
         }
         if (changed) onChange?.invoke()
+    }
+
+    private companion object {
+        const val DIMMED_BRIGHTNESS = 0.05f
     }
 }

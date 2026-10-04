@@ -66,6 +66,49 @@
             app:key="burn_in_shift"
             app:summary="@string/burn_in_shift_summary"
             app:title="@string/burn_in_shift" />
+        <ListPreference
+            app:defaultValue="0"
+            app:entries="@array/screensaver_entries"
+            app:entryValues="@array/screensaver_values"
+            app:key="screensaver_minutes"
+            app:title="@string/screensaver"
+            app:useSimpleSummaryProvider="true" />
+        <ListPreference
+            app:defaultValue="clock"
+            app:entries="@array/screensaver_mode_entries"
+            app:entryValues="@array/screensaver_mode_values"
+            app:key="screensaver_mode"
+            app:title="@string/screensaver_mode"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:dialogMessage="@string/screensaver_url_help"
+            app:key="screensaver_url"
+            app:title="@string/screensaver_url" />
+        <ListPreference
+            app:defaultValue="0"
+            app:entries="@array/screen_off_entries"
+            app:entryValues="@array/screen_off_values"
+            app:key="screen_off_minutes"
+            app:title="@string/screen_off"
+            app:useSimpleSummaryProvider="true" />
+        <SwitchPreferenceCompat
+            app:defaultValue="false"
+            app:key="wake_proximity"
+            app:summary="@string/wake_proximity_summary"
+            app:title="@string/wake_proximity" />
+        <SwitchPreferenceCompat
+            app:defaultValue="false"
+            app:key="wake_motion"
+            app:summary="@string/wake_motion_summary"
+            app:title="@string/wake_motion" />
+        <ListPreference
+            app:defaultValue="medium"
+            app:dependency="wake_motion"
+            app:entries="@array/motion_sensitivity_entries"
+            app:entryValues="@array/motion_sensitivity_values"
+            app:key="motion_sensitivity"
+            app:title="@string/motion_sensitivity"
+            app:useSimpleSummaryProvider="true" />
         <SwitchPreferenceCompat
             app:defaultValue="false"
             app:key="schedule_enabled"

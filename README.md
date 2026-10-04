@@ -22,6 +22,10 @@ For public devices, optional [managed lockdown](docs/MANAGED-KIOSK.md) blocks An
   comes back), rebuilds the browser if it crashes, reloads a page that has frozen, and can go back to
   the home page after a period without touches or reload on a timer.
 - **Screen schedule**: black out the screen overnight or on chosen days; a touch wakes it.
+- **Screensaver and sleep**: after a while without use, show a drifting clock, the dashboard dimmed
+  or another page, and later turn the screen off.
+- **Wake on approach**: optionally wake when the camera sees movement or something comes near the
+  proximity sensor. Camera pictures never leave the device.
 - **Reduce burn-in risk**: optionally nudges the page a few pixels every couple of minutes.
 - **Home Assistant**: connects over MQTT and shows up as a device with a screen light (on/off and
   brightness), buttons, volume, notifications, text-to-speech and sensors. No YAML needed.
@@ -92,7 +96,8 @@ dKiosk uses Home Assistant's MQTT discovery, so it appears as a device by itself
 | Page (text) | Shows the current page; set it to open another allowed page |
 | Play sound (text) | Plays a sound file from an http(s) address; `stop` stops it |
 | Message, Speak (notify) | An on-screen message, or text read aloud |
-| Battery, Charging, Current page, Load error, Last touch (sensors) | Last touch is handy for presence |
+| Battery, Charging, Current page, Load error, Last touch, Screensaver (sensors) | Last touch is handy for presence |
+| Motion (binary sensor) | Movement seen by the camera or proximity sensor, held for 30 seconds. Only with one of them on |
 | Take screenshot (button), Screenshot (image) | Only while "Allow remote screenshots" is on |
 
 The Page entity also takes `{"url": "...", "seconds": 30}` to show a page for a while, and Message
@@ -125,7 +130,7 @@ so keep it on a network you trust.
 
 | Request | Body | Does |
 |---|---|---|
-| `GET /status` | | Current page, home page, screen state, brightness, volume, last load error, battery |
+| `GET /status` | | Current page, home page, screen state, screensaver, motion, brightness, volume, last load error, battery |
 | `GET /screenshot` | | A JPEG of the screen. Off until "Allow remote screenshots" is turned on in the settings |
 | `POST /reload` | | Reloads the page |
 | `POST /home` | | Goes to the home page |

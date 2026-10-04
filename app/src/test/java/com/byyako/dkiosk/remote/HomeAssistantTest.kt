@@ -42,6 +42,15 @@ class HomeAssistantTest {
     }
 
     @Test
+    fun motionSensorOnlyWithAMotionSource() {
+        val without = ha.discovery(screenshots = false, motion = false).toMap()
+        assertEquals("", without.getValue("homeassistant/binary_sensor/dkiosk_abc123/motion/config"))
+        val with = ha.discovery(screenshots = false, motion = true).toMap()
+        val motion = JSONObject(with.getValue("homeassistant/binary_sensor/dkiosk_abc123/motion/config"))
+        assertEquals("motion", motion.getString("device_class"))
+    }
+
+    @Test
     fun screenAndBrightness() {
         send("screen", "OFF")
         send("screen", "on")

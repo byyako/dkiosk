@@ -82,6 +82,20 @@ A kiosk nobody watches has to get itself out of trouble:
 when the screen wakes, and on OLED screens black pixels are off anyway. Really turning the screen
 off would need device admin rights and would leave the phone locked.
 
+Inactivity is counted from the last touch or motion. The screensaver comes first, then the screen
+turns off; the first touch on either is swallowed like the touch that wakes a dark screen. The page
+screensaver gets its own WebView so the dashboard keeps its state, and it never prompts for logins or
+certificates because nobody is there to answer. Commands meant to be seen (screen on, messages,
+temporary pages) count as activity.
+
+Motion detection compares frames from the front camera, two a second at about 160x120, averaged
+over a 16x12 grid. The overall brightness change between frames is subtracted first, so the screen
+lighting up the room or the camera adjusting its exposure doesn't count, and frames are ignored for
+three seconds after the screen changes. The camera is only open while the dashboard is in front.
+When a page takes it, detection waits for Android to report it free rather than taking it back,
+which would cut off a video call. The proximity sensor only counts a change from far to near, so one
+covered all the time doesn't keep the screen awake.
+
 `ScreenState` combines three inputs: the schedule, a remote on/off that lasts until the schedule
 next switches, and a touch that wakes the screen for a while. The touch that wakes the screen is
 swallowed so it can't press anything on the page.

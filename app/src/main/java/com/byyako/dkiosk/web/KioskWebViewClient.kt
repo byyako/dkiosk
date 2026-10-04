@@ -1,9 +1,7 @@
 package com.byyako.dkiosk.web
 
 import android.graphics.Bitmap
-import android.net.http.SslCertificate
 import android.net.http.SslError
-import android.os.Build
 import android.webkit.HttpAuthHandler
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.SslErrorHandler
@@ -131,14 +129,6 @@ class KioskWebViewClient(
         // Returning true keeps the app alive; the activity replaces this WebView, which is now unusable.
         return true
     }
-
-    private fun SslCertificate.derBytes(): ByteArray? =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            x509Certificate?.encoded
-        } else {
-            // Before API 29 the raw certificate is only reachable through its saved-state bundle.
-            SslCertificate.saveState(this).getByteArray("x509-certificate")
-        }
 
     private companion object {
         const val BLANK = "about:blank"

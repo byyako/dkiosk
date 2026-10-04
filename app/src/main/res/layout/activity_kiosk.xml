@@ -16,6 +16,10 @@
         layout="@layout/view_error"
         android:visibility="gone" />
 
+    <include
+        android:id="@+id/screensaver"
+        layout="@layout/view_screensaver" />
+
     <!-- Messages sent over the API. At the bottom so it never covers the settings corner; a tap
          dismisses it. -->
     <TextView

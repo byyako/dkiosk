@@ -33,7 +33,7 @@ class HomeAssistant(
     }
 
     /** Discovery messages to publish (retained). An empty payload removes an entity. */
-    fun discovery(screenshots: Boolean): List<Pair<String, String>> {
+    fun discovery(screenshots: Boolean, motion: Boolean = false): List<Pair<String, String>> {
         val entities = mutableListOf<Pair<String, String>>()
         fun add(component: String, key: String, config: JSONObject?) {
             val topic = "$discoveryPrefix/$component/dkiosk_$deviceId/$key/config"
@@ -109,6 +109,16 @@ class HomeAssistant(
         add(
             "sensor", "last_touch",
             sensor("Last touch", "{{ value_json.lastTouch }}").put("device_class", "timestamp").put("icon", "mdi:gesture-tap"),
+        )
+        add(
+            "binary_sensor", "motion",
+            if (motion) {
+                sensor("Motion", "{{ 'ON' if value_json.motion else 'OFF' }}").put("device_class", "motion")
+            } else null,
+        )
+        add(
+            "binary_sensor", "screensaver",
+            sensor("Screensaver", "{{ 'ON' if value_json.screensaver else 'OFF' }}").put("icon", "mdi:clock-outline"),
         )
         // Without screenshots allowed, the entities are removed rather than left broken.
         add("button", "screenshot", if (screenshots) button("Take screenshot", "screenshot", "mdi:camera") else null)
