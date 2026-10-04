@@ -119,6 +119,15 @@ Five wrong tries lock the prompt for 30 seconds, doubling after that.
 Home-screen mode puts the HOME intent filter on an activity alias that is disabled by default.
 If it were on the main activity, installing the app could make Android ask which home app to use.
 
+## Copying settings
+
+Exports are JSON with an allow-list of settings, read back against the same list with the expected
+types, so a file can't set the PIN or anything unknown. Secrets and what belongs to one device (its
+MQTT identity and name, lockdown) stay out. Importing resets the copyable settings the file doesn't
+mention, so the result matches the kiosk it came from. QR codes hold the same JSON; zxing-core
+encodes and decodes them because a hand-written QR codec isn't worth it. The settings screen closes
+itself when hidden, except while a file picker or the scanner it opened is answering.
+
 ## Remote control
 
 A tiny HTTP/1.1 server written for the purpose: one JSON request per connection, size limits, a

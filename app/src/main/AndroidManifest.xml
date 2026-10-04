@@ -80,6 +80,10 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".setup.ScanActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".settings.SettingsActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />

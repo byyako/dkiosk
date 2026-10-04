@@ -15,6 +15,7 @@ import android.view.LayoutInflater
 import android.webkit.CookieManager
 import android.webkit.WebStorage
 import android.webkit.WebViewDatabase
+import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
@@ -29,12 +30,15 @@ import androidx.preference.SwitchPreferenceCompat
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.byyako.dkiosk.R
 import com.byyako.dkiosk.config.KioskPrefs
+import com.byyako.dkiosk.config.SettingsTransfer
+import com.byyako.dkiosk.config.SetupCodes
 import com.byyako.dkiosk.databinding.ViewNewPinBinding
 import com.byyako.dkiosk.lockdown.Lockdown
 import com.byyako.dkiosk.remote.KioskApi
 import com.byyako.dkiosk.remote.MqttStatus
 import com.byyako.dkiosk.screen.ProximityWake
 import com.byyako.dkiosk.screen.Screensaver
+import com.byyako.dkiosk.setup.ScanActivity
 import com.byyako.dkiosk.remote.localIpAddress
 import com.byyako.dkiosk.ui.panForKeyboard
 import com.byyako.dkiosk.web.NavigationPolicy
@@ -42,6 +46,7 @@ import com.byyako.dkiosk.web.SitePermissions
 import com.byyako.dkiosk.web.allowedHostPattern
 import com.byyako.dkiosk.web.hostOf
 import com.byyako.dkiosk.web.normalizeHomeUrl
+import java.io.IOException
 import java.time.DayOfWeek
 import java.time.format.TextStyle
 import java.util.Locale
@@ -49,6 +54,29 @@ import java.util.Locale
 class SettingsFragment : PreferenceFragmentCompat() {
 
     private val prefs by lazy { KioskPrefs(requireContext()) }
+
+    private val exportFile = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri == null) return@registerForActivityResult
+        try {
+            Backup.write(requireContext(), uri, SettingsTransfer.export(prefs.all))
+            toast(R.string.export_settings_done)
+        } catch (e: IOException) {
+            toast(getString(R.string.import_settings_failed, e.message.orEmpty()))
+        }
+    }
+
+    private val importFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@registerForActivityResult
+        try {
+            confirmImport(Backup.read(requireContext(), uri))
+        } catch (e: Exception) {
+            toast(getString(R.string.import_settings_failed, e.message.orEmpty()))
+        }
+    }
+
+    private val scanCode = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        result.data?.getStringExtra(ScanActivity.EXTRA_TEXT)?.let(::confirmImport)
+    }
 
     // Motion detection needs the camera; the switch only turns on once Android allows it.
     private val requestCamera = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -92,6 +120,19 @@ class SettingsFragment : PreferenceFragmentCompat() {
         }
         onClick("support") { openLink(getString(R.string.support_url)) }
         onClick("diagnostics", ::showDiagnostics)
+        onClick("export_settings") {
+            awaitResult()
+            exportFile.launch("dkiosk-settings.json")
+        }
+        onClick("import_settings") {
+            awaitResult()
+            importFile.launch(arrayOf("application/json", "text/plain", "application/octet-stream"))
+        }
+        onClick("show_setup_code", ::showSetupCode)
+        onClick("scan_setup_code") {
+            awaitResult()
+            scanCode.launch(Intent(requireContext(), ScanActivity::class.java))
+        }
 
         val context = requireContext()
         findPreference<Preference>("version")?.summary =
@@ -426,6 +467,42 @@ class SettingsFragment : PreferenceFragmentCompat() {
         }
         dialog.panForKeyboard()
         dialog.show()
+    }
+
+    private fun awaitResult() = (requireActivity() as SettingsActivity).awaitResult()
+
+    private fun confirmImport(text: String) {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.import_settings)
+            .setMessage(R.string.import_settings_confirm)
+            .setPositiveButton(R.string.import_settings) { _, _ ->
+                try {
+                    val notes = Backup.import(requireContext(), prefs, text)
+                    toast((listOf(getString(R.string.import_settings_done)) + notes.map(::getString)).joinToString(" "))
+                    // The new home page loads when the dashboard comes back; rebuild this screen with the new values.
+                    requireActivity().setResult(Activity.RESULT_OK, Intent().putExtra(SettingsActivity.EXTRA_RELOAD, true))
+                    requireActivity().recreate()
+                } catch (e: SettingsTransfer.ImportException) {
+                    toast(getString(R.string.import_settings_failed, e.message.orEmpty()))
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun showSetupCode() {
+        val code = SetupCodes.encode(SettingsTransfer.export(prefs.all)) ?: return toast(R.string.setup_code_too_big)
+        val image = ImageView(requireContext()).apply {
+            setImageBitmap(Backup.bitmap(code))
+            adjustViewBounds = true
+            val padding = resources.getDimensionPixelSize(R.dimen.dialog_padding)
+            setPadding(padding, padding, padding, 0)
+        }
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.show_setup_code)
+            .setView(image)
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
     }
 
     private fun showDiagnostics() {

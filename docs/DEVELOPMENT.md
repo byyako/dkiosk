@@ -118,17 +118,30 @@ from normal build/install testing.
 Settings can be written directly in debug builds with
 `adb shell run-as com.byyako.dkiosk.debug` (file `shared_prefs/kiosk.xml`) to skip the UI.
 
-## Validation checkpoint: 2026-10-03
+## Validation checkpoint: 2026-10-04
 
-The optional PIN, corner gesture and managed lockdown changes pass `assembleDebug
-testDebugUnitTest lintDebug` (82 JVM tests; lint only reports the deliberately deferred targetSdk).
-On a OnePlus 6T (LineageOS, Android 15, not provisioned) the debug build passed: first-run setup
-with a PIN, the corner gesture in portrait and landscape and over the error screen (drags and long
-presses don't count, progress resets), wrong-PIN lockout, turning PIN protection off and on, the
-API pausing in settings and in the background, Bearer token checks, Exit kiosk, blocked links,
-self-signed certificate trust behind the PIN and basic auth. Settings written in the 1.0.0 format
-(home page and PIN hash only) skip setup and keep requiring the PIN.
+`assembleDebug testDebugUnitTest lintDebug` passes (132 JVM tests; lint only reports the
+deliberately deferred targetSdk). On a OnePlus 6T (LineageOS, Android 15, not provisioned) the debug
+build passed:
+
+- First-run setup with a PIN, the corner gesture in portrait and landscape, flush in the corner and
+  over the error screen, wrong-PIN lockout, PIN protection off and on, settings in the 1.0.0 format.
+- HTTP API: token checks, pausing in settings and the background, brightness, volume, sound, message
+  (lighting a dark screen), temporary page (waiting for touches to stop), screenshot gate and JPEG.
+  Speech was only checked without an engine installed (503, no crash).
+- MQTT against a local broker: wrong password reported in settings, discovery of all entities, every
+  command, state reports, offline on pause, last will on a killed app, reconnect after the broker
+  restarts, rediscovery when Home Assistant announces itself. Not checked against a real Home
+  Assistant.
+- Camera permission flow (dKiosk prompt, PIN, Android dialog), blocking remembered, reset in
+  settings, autoplay switch.
+- Screensaver clock, dimmed and page modes, screen off after inactivity, touch dismissal. The camera
+  motion detector stayed quiet with nobody in view and woke the screen when someone returned. The
+  proximity sensor wasn't triggered by hand.
+- Night page during its hours, diagnostics report, export to a file, import from a file (a PIN hash
+  in the file is ignored), restore on the first-run screen, setup code shown and decoded from a
+  screenshot by another decoder. Scanning a code with the camera wasn't tried on a real code.
 
 Not yet checked on a device: Device Owner provisioning and everything in lockdown, and reboot with
-home-screen mode. Complete the acceptance checks in
-[MANAGED-KIOSK.md](MANAGED-KIOSK.md) before releasing or using this on a public device.
+home-screen mode. Complete the acceptance checks in [MANAGED-KIOSK.md](MANAGED-KIOSK.md) before
+releasing or using this on a public device.

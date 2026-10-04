@@ -65,6 +65,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.preference)
     implementation(libs.material)
+    implementation(libs.zxing.core)
 
     testImplementation(libs.junit)
     testImplementation(libs.org.json)

@@ -33,6 +33,8 @@ For public devices, optional [managed lockdown](docs/MANAGED-KIOSK.md) blocks An
 - **Remote control**: an optional HTTP API for the same commands and more, like reloading, opening a
   page for a while (a doorbell camera, say), messages, sounds, speech and screenshots.
 - **Home-screen mode**: optionally make it the phone's home app so it comes back after a reboot.
+- **Copy a setup**: export the settings to a file or show them as a QR code, and set up the next
+  kiosk by scanning it. The PIN, API token and MQTT password are never included.
 - **Administrator access**: five corner taps open settings, with an optional PIN.
 - **Managed lockdown**: Device Owner or a device management provider can allowlist dKiosk for
   Android's lock task mode, blocking Home, Recents and system controls.
@@ -68,6 +70,12 @@ needs the PIN if protection is on; blocking doesn't. Both answers are remembered
 "Forget camera and microphone answers" in the settings resets them. Browsers only let secure pages
 use them: `https://` addresses, or `localhost`. A dashboard on plain `http://192.168.x.x` can't,
 whatever the kiosk allows.
+
+**Setting up more kiosks:** on a configured kiosk, use "Show setup code" or "Export settings". On
+the new one, choose "Scan a setup code" or "Restore from a file" on the first screen, then pick its
+PIN. Secrets aren't copied: the PIN, the API token (a new one is made) and the MQTT password have to
+be set again, and each kiosk keeps its own Home Assistant device name. A code with many trusted
+certificates or allowed sites may be too big for one QR code; the file always works.
 
 **Diagnostics:** "Diagnostics" in the settings shows versions, connection states and the problems
 the kiosk recovered from since it started, ready to copy into a bug report.

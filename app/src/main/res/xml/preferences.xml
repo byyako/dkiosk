@@ -275,6 +275,21 @@
             app:key="exit"
             app:title="@string/exit" />
         <Preference
+            app:key="export_settings"
+            app:summary="@string/export_settings_summary"
+            app:title="@string/export_settings" />
+        <Preference
+            app:key="import_settings"
+            app:summary="@string/import_settings_summary"
+            app:title="@string/import_settings" />
+        <Preference
+            app:key="show_setup_code"
+            app:summary="@string/show_setup_code_summary"
+            app:title="@string/show_setup_code" />
+        <Preference
+            app:key="scan_setup_code"
+            app:title="@string/scan_setup_code" />
+        <Preference
             app:key="diagnostics"
             app:summary="@string/diagnostics_summary"
             app:title="@string/diagnostics" />

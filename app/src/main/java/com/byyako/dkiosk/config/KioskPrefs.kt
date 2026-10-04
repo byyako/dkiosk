@@ -38,6 +38,25 @@ class KioskPrefs(context: Context) {
         get() = prefs.getBoolean(LOCKDOWN_ENABLED, false)
         set(value) = prefs.edit { putBoolean(LOCKDOWN_ENABLED, value) }
 
+    /** Everything stored, for exporting. */
+    val all: Map<String, *>
+        get() = prefs.all
+
+    /**
+     * Replaces the copyable settings with [values] from an import. Settings the import doesn't
+     * mention go back to their defaults, so the result matches the kiosk it came from.
+     */
+    fun applyImport(values: Map<String, Any>) = prefs.edit {
+        (SettingsTransfer.KEYS - values.keys).forEach { remove(it) }
+        for ((key, value) in values) {
+            when (value) {
+                is String -> putString(key, value)
+                is Boolean -> putBoolean(key, value)
+                is Set<*> -> putStringSet(key, value.filterIsInstance<String>().toSet())
+            }
+        }
+    }
+
     /** Save setup together so an optional PIN doesn't send the next launch back to setup. */
     fun completeSetup(url: String, hash: String?) = prefs.edit {
         putString(HOME_URL, url)
