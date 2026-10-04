@@ -25,6 +25,13 @@ class UrlsTest {
     }
 
     @Test
+    fun keepsPastedSchemeAfterPrefilledOne() {
+        assertEquals("http://localhost:8780/", normalizeHomeUrl("https://http://localhost:8780/"))
+        assertEquals("https://example.com", normalizeHomeUrl("HTTPS://https://example.com"))
+        assertNull(normalizeHomeUrl("https://file:///sdcard/index.html"))
+    }
+
+    @Test
     fun rejectsNonWebSchemes() {
         assertNull(normalizeHomeUrl("file:///sdcard/index.html"))
         assertNull(normalizeHomeUrl("javascript://alert(1)"))

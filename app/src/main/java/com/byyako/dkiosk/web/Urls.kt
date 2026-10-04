@@ -5,12 +5,15 @@ import java.net.URISyntaxException
 
 private val WEB_SCHEMES = setOf("http", "https")
 
+// The setup field starts with "https://", so pasting a full address after it doubles the scheme.
+private val DOUBLED_SCHEME = Regex("^https?://(?=[a-z][a-z0-9+.-]*://)", RegexOption.IGNORE_CASE)
+
 /**
  * Turns what a user typed into a loadable URL, or null if it isn't one.
  * Input without a scheme ("192.168.1.5:8123") is assumed to be https.
  */
 fun normalizeHomeUrl(input: String): String? {
-    val trimmed = input.trim()
+    val trimmed = input.trim().replace(DOUBLED_SCHEME, "")
     if (trimmed.isEmpty()) return null
 
     val withScheme = if ("://" in trimmed) trimmed else "https://$trimmed"
