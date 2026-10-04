@@ -82,7 +82,8 @@ swallowed so it can't press anything on the page.
 Five completed taps within five seconds in a reserved 80 dp top-right corner, then the optional PIN.
 The area consumes touches so page controls cannot interrupt the sequence. Progress is visible;
 movement beyond Android's touch slop, long presses, cancelled gestures, multitouch and outside
-touches reset it. Bounds use screen coordinates and avoid cutouts and system gesture insets.
+touches reset it. The area sits flush in the corner, where people look for it: Android's gesture
+areas only take swipes, so taps there still arrive. It moves down only if a camera cutout overlaps it.
 An accessibility click on the administrator target opens the same optional PIN flow.
 The PIN is stored as a salted PBKDF2 hash.
 Five wrong tries lock the prompt for 30 seconds, doubling after that.

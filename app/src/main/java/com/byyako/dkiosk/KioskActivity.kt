@@ -82,6 +82,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     private val handler = Handler(Looper.getMainLooper())
     private val cornerGesture by lazy { CornerTapGesture(ViewConfiguration.get(this).scaledTouchSlop.toFloat()) }
     private val cornerBounds = Rect()
+    private var cutouts: List<Rect> = emptyList()
     private val cornerLocation = IntArray(2)
     private var restoredLockTaskStart = false
     private val lockdown by lazy { Lockdown(this, restoredLockTaskStart) }
@@ -666,14 +667,29 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     private fun padForKeyboard(root: View) {
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
             view.updatePadding(bottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom)
-            val safe = insets.getInsets(WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.systemGestures())
-            val params = binding.adminCorner.layoutParams as FrameLayout.LayoutParams
-            if (params.topMargin != safe.top || params.rightMargin != safe.right) {
-                params.topMargin = safe.top
-                params.rightMargin = safe.right
-                binding.adminCorner.layoutParams = params
-            }
+            cutouts = insets.displayCutout?.boundingRects.orEmpty()
+            placeAdminCorner()
             insets
+        }
+        root.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> placeAdminCorner() }
+    }
+
+    /**
+     * Keeps the settings target flush in the top-right corner, where people expect it. Taps in the
+     * system gesture areas still reach the app (only swipes are taken), so only a camera cutout
+     * overlapping the corner moves the target down.
+     */
+    private fun placeAdminCorner() {
+        val width = binding.root.width
+        if (width == 0) return
+        val size = resources.getDimensionPixelSize(R.dimen.settings_corner)
+        val corner = Rect(width - size, 0, width, size)
+        val top = cutouts.filter { Rect.intersects(it, corner) }.maxOfOrNull { it.bottom } ?: 0
+        val params = binding.adminCorner.layoutParams as FrameLayout.LayoutParams
+        if (params.topMargin != top || params.rightMargin != 0) {
+            params.topMargin = top
+            params.rightMargin = 0
+            binding.adminCorner.layoutParams = params
         }
     }
 
