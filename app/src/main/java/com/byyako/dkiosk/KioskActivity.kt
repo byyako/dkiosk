@@ -44,6 +44,7 @@ import com.byyako.dkiosk.lockdown.Lockdown
 import com.byyako.dkiosk.media.SoundPlayer
 import com.byyako.dkiosk.media.Speaker
 import com.byyako.dkiosk.recovery.Backoff
+import com.byyako.dkiosk.recovery.Diagnostics
 import com.byyako.dkiosk.recovery.ErrorScreen
 import com.byyako.dkiosk.recovery.IdleTimer
 import com.byyako.dkiosk.recovery.Watchdog
@@ -623,6 +624,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         kioskLoad = null
         failedUrl = url
         failure = reason
+        Diagnostics.loadFailed(hostOf(url) ?: url, reason)
         errorScreen.show(hostOf(url) ?: url, reason, pageBackoff.nextDelayMs())
         mqttBridge?.stateChanged()
     }
@@ -655,6 +657,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
 
     override fun onRendererGone(crashed: Boolean) {
         Log.w(TAG, "WebView renderer gone (crashed=$crashed), replacing the WebView")
+        Diagnostics.rendererGone(crashed)
         val now = SystemClock.uptimeMillis()
         // A page that kills the renderer right after loading would otherwise restart in a tight loop.
         val delay = if (now - lastRendererLossAt < 60_000) rendererBackoff.nextDelayMs() else 0L
@@ -667,6 +670,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
 
     private fun onPageUnresponsive() {
         Log.w(TAG, "Page stopped responding")
+        Diagnostics.froze()
         // Killing the renderer leads to onRendererGone, which rebuilds everything.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && webView.webViewRenderProcess?.terminate() == true) return
         replaceWebView()
@@ -811,6 +815,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
             apiServerToken = token
         } catch (e: IOException) {
             Log.w(TAG, "Can't start the API on port ${prefs.apiPort}", e)
+            Diagnostics.note("Couldn't start the HTTP API on port ${prefs.apiPort}")
             Toast.makeText(this, getString(R.string.api_port_busy, prefs.apiPort), Toast.LENGTH_LONG).show()
         }
     }

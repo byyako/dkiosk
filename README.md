@@ -69,6 +69,9 @@ needs the PIN if protection is on; blocking doesn't. Both answers are remembered
 use them: `https://` addresses, or `localhost`. A dashboard on plain `http://192.168.x.x` can't,
 whatever the kiosk allows.
 
+**Diagnostics:** "Diagnostics" in the settings shows versions, connection states and the problems
+the kiosk recovered from since it started, ready to copy into a bug report.
+
 **Forgot the PIN?** Clear dKiosk's storage in Android's app settings (Settings, Apps, dKiosk Browser,
 Storage). That resets everything, including the sign-in to your page.
 

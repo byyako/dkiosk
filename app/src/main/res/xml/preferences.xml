@@ -275,6 +275,10 @@
             app:key="exit"
             app:title="@string/exit" />
         <Preference
+            app:key="diagnostics"
+            app:summary="@string/diagnostics_summary"
+            app:title="@string/diagnostics" />
+        <Preference
             app:key="support"
             app:summary="@string/support_summary"
             app:title="@string/support" />

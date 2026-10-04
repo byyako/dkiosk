@@ -91,6 +91,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 .show()
         }
         onClick("support") { openLink(getString(R.string.support_url)) }
+        onClick("diagnostics", ::showDiagnostics)
 
         val context = requireContext()
         findPreference<Preference>("version")?.summary =
@@ -425,6 +426,16 @@ class SettingsFragment : PreferenceFragmentCompat() {
         }
         dialog.panForKeyboard()
         dialog.show()
+    }
+
+    private fun showDiagnostics() {
+        val report = DiagnosticsReport.build(requireContext(), prefs)
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.diagnostics)
+            .setMessage(report)
+            .setPositiveButton(R.string.diagnostics_copy) { _, _ -> copy(report) }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun forgetCertificates() {

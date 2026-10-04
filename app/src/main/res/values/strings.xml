@@ -96,6 +96,9 @@
     <string name="night_page_url_missing">Not set; the home page is shown all day</string>
     <string name="night_page_from">Night page from</string>
     <string name="night_page_until">Night page until</string>
+    <string name="diagnostics">Diagnostics</string>
+    <string name="diagnostics_copy">Copy</string>
+    <string name="diagnostics_summary">Versions, connection states and recent problems, to copy into a bug report</string>
     <string name="allow_autoplay">Autoplay with sound</string>
     <string name="allow_autoplay_summary">Pages can start video and audio with sound without a tap. Muted autoplay always works.</string>
     <string name="allow_zoom">Allow pinch to zoom</string>
