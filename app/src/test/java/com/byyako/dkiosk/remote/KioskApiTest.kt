@@ -1,61 +1,11 @@
 package com.byyako.dkiosk.remote
 
-import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class KioskApiTest {
-
-    private class FakeKiosk : KioskControl {
-        val calls = mutableListOf<String>()
-        var openProblem: String? = null
-        var speakProblem: String? = null
-        var screenshot: ByteArray? = byteArrayOf(1, 2, 3)
-
-        override fun status(): JSONObject = JSONObject().put("screen", "on")
-
-        override fun reload() {
-            calls += "reload"
-        }
-
-        override fun goHome() {
-            calls += "home"
-        }
-
-        override fun open(url: String, makeHome: Boolean, seconds: Int?): String? {
-            calls += "open $url home=$makeHome" + (seconds?.let { " for $it" } ?: "")
-            return openProblem
-        }
-
-        override fun setScreen(on: Boolean) {
-            calls += "screen $on"
-        }
-
-        override fun setBrightness(percent: Int?) {
-            calls += "brightness $percent"
-        }
-
-        override fun setVolume(percent: Int) {
-            calls += "volume $percent"
-        }
-
-        override fun speak(text: String, language: String?): String? {
-            calls += "speak $text ($language)"
-            return speakProblem
-        }
-
-        override fun playSound(url: String?) {
-            calls += "sound $url"
-        }
-
-        override fun showMessage(text: String, seconds: Int) {
-            calls += "message $text for $seconds"
-        }
-
-        override fun screenshot(): ByteArray? = screenshot
-    }
 
     private val kiosk = FakeKiosk()
     private val api = KioskApi("secret-token", kiosk)

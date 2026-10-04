@@ -113,6 +113,22 @@ home page for any reason ends it.
 The brightness setting is the window's brightness, not Android's, so it needs no permission and
 only applies while dKiosk is in front.
 
+## Home Assistant
+
+MQTT discovery rather than a custom integration: it needs nothing installed in Home Assistant beyond
+the MQTT integration most installs already have, and the device and its entities appear by
+themselves. The client is a small MQTT 3.1.1 implementation written for the purpose, like the HTTP
+server: Eclipse Paho for Android is unmaintained and HiveMQ's client brings Netty and RxJava. It
+publishes and subscribes at QoS 0 over one connection, with a retained last will so Home Assistant
+marks the kiosk unavailable if it drops. TLS uses Android's trusted certificates and checks the host
+name, which plain `SSLSocket` doesn't do by itself.
+
+Commands go through the same `KioskControl` as the HTTP API, on a worker thread because those calls
+wait for the main thread. The connection follows the dashboard's lifecycle like the API does. MQTT
+deliberately can't change the home page: anyone who can publish on the broker shouldn't be able to
+repoint the kiosk for good. When Home Assistant restarts it publishes `online` on
+`homeassistant/status`, and the kiosk announces itself again.
+
 ## Android versions
 
 minSdk 26 (Android 8.0), targetSdk 36, compileSdk 37.

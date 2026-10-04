@@ -8,6 +8,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.text.InputType
+import android.text.format.DateUtils
 import android.view.LayoutInflater
 import android.webkit.CookieManager
 import android.webkit.WebStorage
@@ -28,6 +29,7 @@ import com.byyako.dkiosk.config.KioskPrefs
 import com.byyako.dkiosk.databinding.ViewNewPinBinding
 import com.byyako.dkiosk.lockdown.Lockdown
 import com.byyako.dkiosk.remote.KioskApi
+import com.byyako.dkiosk.remote.MqttStatus
 import com.byyako.dkiosk.remote.localIpAddress
 import com.byyako.dkiosk.ui.panForKeyboard
 import com.byyako.dkiosk.web.allowedHostPattern
@@ -50,6 +52,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
         setUpScheduleDays()
         setUpBrightness()
         setUpApi()
+        setUpMqtt()
         setUpHomeScreen()
         setUpPinProtection()
         setUpLockdown()
@@ -78,6 +81,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
     override fun onResume() {
         super.onResume()
         updateApiAddress()
+        updateMqttStatus()
         // Coming back from Android's home app screen, the choice may have changed.
         findPreference<SwitchPreferenceCompat>("home_screen")?.isChecked = HomeApp.isOffered(requireContext())
         findPreference<Preference>("choose_home_app")?.setSummary(
@@ -171,6 +175,73 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 if (!valid) toast(R.string.api_port_invalid)
                 valid
             }
+        }
+    }
+
+    private fun setUpMqtt() {
+        findPreference<EditTextPreference>(KioskPrefs.MQTT_HOST)?.apply {
+            dialogMessage = getString(R.string.mqtt_host_hint)
+            setOnBindEditTextListener { it.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI }
+            setSummaryProvider { prefs.mqttHost ?: getString(R.string.mqtt_host_missing) }
+            setOnPreferenceChangeListener { _, value ->
+                val text = (value as String).trim()
+                val host = KioskPrefs.cleanMqttHost(text)
+                when {
+                    text.isEmpty() -> true
+                    host == null || host.any { it.isWhitespace() } -> {
+                        toast(R.string.mqtt_host_invalid)
+                        false
+                    }
+                    host != text -> {
+                        this.text = host // Save it without the scheme or port.
+                        false
+                    }
+                    else -> true
+                }
+            }
+        }
+        findPreference<EditTextPreference>(KioskPrefs.MQTT_PORT)?.apply {
+            dialogMessage = getString(R.string.mqtt_port_help)
+            setOnBindEditTextListener { it.inputType = InputType.TYPE_CLASS_NUMBER }
+            setSummaryProvider { prefs.mqttPort.toString() }
+            setOnPreferenceChangeListener { _, value ->
+                val valid = (value as String).isEmpty() || value.toIntOrNull() in 1..65535
+                if (!valid) toast(R.string.mqtt_port_invalid)
+                valid
+            }
+        }
+        findPreference<EditTextPreference>(KioskPrefs.MQTT_USERNAME)?.setSummaryProvider {
+            prefs.mqttUsername ?: getString(R.string.mqtt_not_set)
+        }
+        findPreference<EditTextPreference>(KioskPrefs.MQTT_PASSWORD)?.apply {
+            setOnBindEditTextListener {
+                it.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            }
+            setSummaryProvider {
+                getString(if (prefs.mqttPassword == null) R.string.mqtt_not_set else R.string.mqtt_password_set)
+            }
+        }
+        findPreference<EditTextPreference>(KioskPrefs.MQTT_NAME)?.apply {
+            setOnBindEditTextListener { if (it.text.isEmpty()) it.setText(prefs.mqttName) }
+            setSummaryProvider { prefs.mqttName }
+        }
+        // The TLS switch changes the default port. The new value is saved after this listener, so
+        // the port's summary is refreshed (by setting its provider again) once that's done.
+        findPreference<SwitchPreferenceCompat>(KioskPrefs.MQTT_TLS)?.setOnPreferenceChangeListener { _, _ ->
+            listView.post {
+                findPreference<EditTextPreference>(KioskPrefs.MQTT_PORT)?.let { it.summaryProvider = it.summaryProvider }
+            }
+            true
+        }
+    }
+
+    private fun updateMqttStatus() {
+        val status = MqttStatus.text
+        findPreference<Preference>("mqtt_status")?.summary = if (status == null) {
+            getString(R.string.mqtt_status_never)
+        } else {
+            val time = DateUtils.formatDateTime(requireContext(), MqttStatus.at, DateUtils.FORMAT_SHOW_TIME)
+            getString(R.string.mqtt_status_at, status, time)
         }
     }
 

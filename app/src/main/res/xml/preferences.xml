@@ -114,12 +114,45 @@
             app:key="api_token"
             app:summary="@string/api_token_summary"
             app:title="@string/api_token" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/settings_mqtt">
         <SwitchPreferenceCompat
             app:defaultValue="false"
-            app:dependency="api_enabled"
-            app:key="api_screenshots"
-            app:summary="@string/api_screenshots_summary"
-            app:title="@string/api_screenshots" />
+            app:key="mqtt_enabled"
+            app:summary="@string/mqtt_enabled_summary"
+            app:title="@string/mqtt_enabled" />
+        <EditTextPreference
+            app:dependency="mqtt_enabled"
+            app:key="mqtt_host"
+            app:title="@string/mqtt_host" />
+        <EditTextPreference
+            app:dependency="mqtt_enabled"
+            app:key="mqtt_port"
+            app:title="@string/mqtt_port" />
+        <SwitchPreferenceCompat
+            app:defaultValue="false"
+            app:dependency="mqtt_enabled"
+            app:key="mqtt_tls"
+            app:summary="@string/mqtt_tls_summary"
+            app:title="@string/mqtt_tls" />
+        <EditTextPreference
+            app:dependency="mqtt_enabled"
+            app:key="mqtt_username"
+            app:title="@string/mqtt_username" />
+        <EditTextPreference
+            app:dependency="mqtt_enabled"
+            app:key="mqtt_password"
+            app:title="@string/mqtt_password" />
+        <EditTextPreference
+            app:dependency="mqtt_enabled"
+            app:key="mqtt_name"
+            app:title="@string/mqtt_name" />
+        <Preference
+            app:dependency="mqtt_enabled"
+            app:key="mqtt_status"
+            app:selectable="false"
+            app:title="@string/mqtt_status" />
     </PreferenceCategory>
 
     <PreferenceCategory app:title="@string/settings_security">
@@ -132,6 +165,11 @@
         <Preference
             app:key="change_pin"
             app:title="@string/change_pin" />
+        <SwitchPreferenceCompat
+            app:defaultValue="false"
+            app:key="api_screenshots"
+            app:summary="@string/api_screenshots_summary"
+            app:title="@string/api_screenshots" />
         <Preference
             app:key="forget_certificates"
             app:summary="@string/forget_certificates_summary"

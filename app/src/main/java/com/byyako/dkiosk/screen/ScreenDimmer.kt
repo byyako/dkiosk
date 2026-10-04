@@ -29,6 +29,9 @@ class ScreenDimmer(private val blackout: View, private val window: Window, priva
     val isDark: Boolean
         get() = blackout.isVisible
 
+    /** Called when the screen goes dark or lights up. */
+    var onChange: (() -> Unit)? = null
+
     fun start() {
         handler.removeCallbacks(tick)
         tick.run()
@@ -65,6 +68,7 @@ class ScreenDimmer(private val blackout: View, private val window: Window, priva
 
     private fun update() {
         val dark = state.isDark(SystemClock.elapsedRealtime(), scheduleSaysOff())
+        val changed = dark != blackout.isVisible
         blackout.isVisible = dark
         val brightness = when {
             dark -> 0f
@@ -73,5 +77,6 @@ class ScreenDimmer(private val blackout: View, private val window: Window, priva
         if (window.attributes.screenBrightness != brightness) {
             window.attributes = window.attributes.apply { screenBrightness = brightness }
         }
+        if (changed) onChange?.invoke()
     }
 }

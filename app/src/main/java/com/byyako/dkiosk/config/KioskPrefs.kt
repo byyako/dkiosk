@@ -1,9 +1,11 @@
 package com.byyako.dkiosk.config
 
 import android.content.Context
+import android.os.Build
 import androidx.core.content.edit
 import java.time.DayOfWeek
 import java.time.LocalTime
+import java.util.UUID
 
 /**
  * All kiosk settings, stored in one SharedPreferences file that the settings screen edits directly.
@@ -119,6 +121,37 @@ class KioskPrefs(context: Context) {
         get() = prefs.getString(API_TOKEN, null)
         set(value) = prefs.edit { putString(API_TOKEN, value) }
 
+    // Home Assistant (MQTT)
+
+    val mqttEnabled: Boolean
+        get() = prefs.getBoolean(MQTT_ENABLED, false)
+
+    /** The broker's host name or address, without a scheme or port. */
+    val mqttHost: String?
+        get() = cleanMqttHost(prefs.getString(MQTT_HOST, null))
+
+    val mqttTls: Boolean
+        get() = prefs.getBoolean(MQTT_TLS, false)
+
+    val mqttPort: Int
+        get() = prefs.getString(MQTT_PORT, null)?.toIntOrNull()?.takeIf { it in 1..65535 }
+            ?: if (mqttTls) 8883 else 1883
+
+    val mqttUsername: String?
+        get() = prefs.getString(MQTT_USERNAME, null)?.trim()?.ifEmpty { null }
+
+    val mqttPassword: String?
+        get() = prefs.getString(MQTT_PASSWORD, null)?.ifEmpty { null }
+
+    /** What Home Assistant calls this device. */
+    val mqttName: String
+        get() = prefs.getString(MQTT_NAME, null)?.trim()?.ifEmpty { null } ?: "dKiosk ${Build.MODEL}"
+
+    /** Random and stable, so renaming the device keeps its entities and history. */
+    val mqttDeviceId: String
+        get() = prefs.getString(MQTT_DEVICE_ID, null) ?: UUID.randomUUID().toString()
+            .replace("-", "").take(12).also { id -> prefs.edit { putString(MQTT_DEVICE_ID, id) } }
+
     companion object {
         const val FILE_NAME = "kiosk"
 
@@ -147,10 +180,26 @@ class KioskPrefs(context: Context) {
         const val API_PORT = "api_port"
         const val API_TOKEN = "api_token"
         const val API_SCREENSHOTS = "api_screenshots"
+        const val MQTT_ENABLED = "mqtt_enabled"
+        const val MQTT_HOST = "mqtt_host"
+        const val MQTT_PORT = "mqtt_port"
+        const val MQTT_TLS = "mqtt_tls"
+        const val MQTT_USERNAME = "mqtt_username"
+        const val MQTT_PASSWORD = "mqtt_password"
+        const val MQTT_NAME = "mqtt_name"
+        const val MQTT_DEVICE_ID = "mqtt_device_id"
 
         const val DEFAULT_API_PORT = 8765
         val DEFAULT_OFF: LocalTime = LocalTime.of(22, 0)
         val DEFAULT_ON: LocalTime = LocalTime.of(7, 0)
+
+        /** "mqtt://broker.local:1883/" becomes "broker.local"; the port has its own setting. */
+        fun cleanMqttHost(value: String?): String? {
+            val host = value?.trim()?.substringAfter("://")?.substringBefore('/')?.ifEmpty { null } ?: return null
+            // An IPv6 address keeps its colons; otherwise anything after a colon is a port.
+            val withoutPort = if (host.startsWith("[")) host.substringBefore(']').removePrefix("[") else host.substringBefore(':')
+            return withoutPort.ifEmpty { null }
+        }
 
         fun parseBrightness(value: String?): Int? = value?.toIntOrNull()?.takeIf { it in 1..100 }
 

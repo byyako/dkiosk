@@ -47,7 +47,9 @@ import com.byyako.dkiosk.recovery.IdleTimer
 import com.byyako.dkiosk.recovery.Watchdog
 import com.byyako.dkiosk.remote.ApiServer
 import com.byyako.dkiosk.remote.KioskApi
+import com.byyako.dkiosk.remote.HomeAssistant
 import com.byyako.dkiosk.remote.KioskControl
+import com.byyako.dkiosk.remote.MqttBridge
 import com.byyako.dkiosk.screen.PixelShift
 import com.byyako.dkiosk.screen.ScreenDimmer
 import com.byyako.dkiosk.screen.Screenshot
@@ -68,6 +70,8 @@ import com.byyako.dkiosk.web.isSamePage
 import com.byyako.dkiosk.web.isSameRoute
 import org.json.JSONObject
 import java.io.IOException
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.concurrent.FutureTask
 import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
@@ -123,6 +127,11 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
     private var swallowGesture = false
     private var apiServer: ApiServer? = null
     private var apiServerToken: String? = null
+    private var mqttBridge: MqttBridge? = null
+    private var lastTouchReportAt = 0L
+
+    // Wall-clock time of the last touch, kept as is so Home Assistant sees it change only on a touch.
+    private var lastTouchTime: Instant = Instant.now().truncatedTo(ChronoUnit.SECONDS)
 
     private val homeUrl: String
         get() = prefs.homeUrl.orEmpty()
@@ -211,6 +220,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         watchdog = Watchdog({ webView }, { chromeClient.isDialogOpen }, ::onPageUnresponsive)
         idleTimer = IdleTimer(::onIdle)
         dimmer = ScreenDimmer(binding.blackout, window, prefs)
+        dimmer.onChange = { mqttBridge?.stateChanged() }
         pixelShift = PixelShift(binding.webContainer)
         speaker = Speaker(this)
         binding.message.setOnClickListener { hideMessage.run() }
@@ -255,6 +265,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         applySettings()
         dimmer.start()
         applyApiSettings()
+        startMqtt()
         try {
             if (prefs.lockdownEnabled) {
                 if (!lockdown.start(this) && !lockdownWarningShown) {
@@ -275,6 +286,8 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         dashboardActive = false
         apiServer?.stop()
         apiServer = null
+        mqttBridge?.stop()
+        mqttBridge = null
         if (::webView.isInitialized) {
             resetCornerGesture()
             pinPrompt.dismiss()
@@ -308,6 +321,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         destroyed = true
         handler.removeCallbacksAndMessages(null)
         apiServer?.stop()
+        mqttBridge?.stop()
         if (::webView.isInitialized) {
             errorScreen.hide()
             pinPrompt.dismiss()
@@ -335,6 +349,8 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         if (!::webView.isInitialized) return super.dispatchTouchEvent(event)
         if (event.actionMasked == MotionEvent.ACTION_DOWN) {
             idleTimer.onTouch()
+            lastTouchTime = Instant.now().truncatedTo(ChronoUnit.SECONDS)
+            reportTouch()
             // The touch that wakes a dark screen shouldn't also press something on the page.
             swallowGesture = dimmer.isDark
             dimmer.onTouch()
@@ -369,6 +385,14 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
             return true
         }
         return super.dispatchTouchEvent(event)
+    }
+
+    /** Home Assistant's "Last touch" sensor, updated at most every 30 seconds while someone is using it. */
+    private fun reportTouch() {
+        val now = SystemClock.uptimeMillis()
+        if (now - lastTouchReportAt < 30_000) return
+        lastTouchReportAt = now
+        mqttBridge?.stateChanged()
     }
 
     private fun resetCornerGesture() {
@@ -439,6 +463,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         failedUrl = null
         failure = null
         errorScreen.hide()
+        mqttBridge?.stateChanged()
     }
 
     override fun onPageFailed(url: String, reason: String) {
@@ -448,6 +473,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         failedUrl = url
         failure = reason
         errorScreen.show(hostOf(url) ?: url, reason, pageBackoff.nextDelayMs())
+        mqttBridge?.stateChanged()
     }
 
     override fun onUntrustedCertificate(host: String, fingerprint: String, handler: SslErrorHandler) {
@@ -619,23 +645,43 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         }
     }
 
+    /** Runs only while the dashboard is in front, like the HTTP API. */
+    private fun startMqtt() {
+        if (!prefs.mqttEnabled || mqttBridge != null) return
+        val host = prefs.mqttHost ?: return
+        val deviceId = prefs.mqttDeviceId
+        val homeAssistant = HomeAssistant(deviceId, prefs.mqttName, Build.MODEL, versionName())
+        val settings = MqttBridge.Settings(
+            host = host,
+            port = prefs.mqttPort,
+            tls = prefs.mqttTls,
+            username = prefs.mqttUsername,
+            password = prefs.mqttPassword,
+            clientId = "dkiosk-$deviceId",
+        )
+        mqttBridge = MqttBridge(settings, homeAssistant, remoteControl) { prefs.apiScreenshots }.also { it.start() }
+    }
+
+    private fun versionName(): String = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty()
+
     // Remote control
 
     private val remoteControl = object : KioskControl {
         override fun status() = onMainThread {
             val battery = getSystemService(BatteryManager::class.java)
             JSONObject()
-                .put("url", webView.url)
-                .put("title", webView.title)
+                .put("url", webView.url ?: JSONObject.NULL)
+                .put("title", webView.title ?: JSONObject.NULL)
                 .put("homeUrl", homeUrl)
                 .put("screen", if (dimmer.isDark) "off" else "on")
-                .put("error", failure)
+                .put("error", failure ?: JSONObject.NULL)
                 .put("battery", battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY))
                 .put("charging", battery.isCharging)
                 .put("brightness", prefs.brightness ?: KioskPrefs.BRIGHTNESS_AUTO)
                 .put("volume", volumePercent())
                 .put("temporaryPage", temporaryPage != null)
-                .put("version", packageManager.getPackageInfo(packageName, 0).versionName)
+                .put("lastTouch", lastTouchTime.toString())
+                .put("version", versionName())
         }
 
         override fun reload() = onMainThread { reloadPage() }

@@ -21,8 +21,10 @@ For public devices, optional [managed lockdown](docs/MANAGED-KIOSK.md) blocks An
   the home page after a period without touches or reload on a timer.
 - **Screen schedule**: black out the screen overnight or on chosen days; a touch wakes it.
 - **Reduce burn-in risk**: optionally nudges the page a few pixels every couple of minutes.
-- **Remote control**: an optional HTTP API for reloading, changing the page and switching the screen
-  on or off, for example from Home Assistant.
+- **Home Assistant**: connects over MQTT and shows up as a device with a screen light (on/off and
+  brightness), buttons, volume, notifications, text-to-speech and sensors. No YAML needed.
+- **Remote control**: an optional HTTP API for the same commands and more, like reloading, opening a
+  page for a while (a doorbell camera, say), messages, sounds, speech and screenshots.
 - **Home-screen mode**: optionally make it the phone's home app so it comes back after a reboot.
 - **Administrator access**: five corner taps open settings, with an optional PIN.
 - **Managed lockdown**: Device Owner or a device management provider can allowlist dKiosk for
@@ -64,6 +66,48 @@ Home/Recents gestures; public devices need managed provisioning to block those e
 **Start after a reboot:** turn on "Use as home screen" in the settings and pick dKiosk Browser as the
 home app. Android only lets a home app start by itself after a reboot.
 
+## Home Assistant
+
+dKiosk uses Home Assistant's MQTT discovery, so it appears as a device by itself:
+
+1. Set up the [MQTT integration](https://www.home-assistant.io/integrations/mqtt/) with a broker, for
+   example the Mosquitto add-on, and create a Home Assistant user for the kiosk to log in with.
+2. In dKiosk's settings, turn on "Connect to Home Assistant" and enter the broker's address, the user
+   name and the password. "Connection" shows whether it worked the next time you open the settings.
+3. Go back to the dashboard. The kiosk appears under Settings, Devices, MQTT.
+
+| Entity | Does |
+|---|---|
+| Screen (light) | Turns the screen off and on; brightness sets the screen brightness |
+| Automatic brightness, Reload, Go home (buttons) | What they say |
+| Volume (number) | Media volume |
+| Page (text) | Shows the current page; set it to open another allowed page |
+| Play sound (text) | Plays a sound file from an http(s) address; `stop` stops it |
+| Message, Speak (notify) | An on-screen message, or text read aloud |
+| Battery, Charging, Current page, Load error, Last touch (sensors) | Last touch is handy for presence |
+| Take screenshot (button), Screenshot (image) | Only while "Allow remote screenshots" is on |
+
+The Page entity also takes `{"url": "...", "seconds": 30}` to show a page for a while, and Message
+takes `{"text": "...", "seconds": 0}` to keep a message up until it's tapped. MQTT can't change the
+home page. The connection is up while the dashboard is visible; Home Assistant shows the kiosk as
+unavailable while its settings are open. TLS needs a broker certificate Android trusts, issued for
+the address entered.
+
+```yaml
+# Show the doorbell camera for 30 seconds and announce it.
+action:
+  - action: text.set_value
+    target:
+      entity_id: text.hall_kiosk_page
+    data:
+      value: '{"url": "http://homeassistant.local:8123/doorbell-view", "seconds": 30}'
+  - action: notify.send_message
+    target:
+      entity_id: notify.hall_kiosk_speak
+    data:
+      message: Someone is at the door
+```
+
 ## Remote control API
 
 Turn on "HTTP API" in the settings. The settings show the address (like `http://192.168.1.50:8765`)
@@ -74,7 +118,7 @@ so keep it on a network you trust.
 | Request | Body | Does |
 |---|---|---|
 | `GET /status` | | Current page, home page, screen state, brightness, volume, last load error, battery |
-| `GET /screenshot` | | A JPEG of the screen. Off until "Allow screenshots" is turned on in the settings |
+| `GET /screenshot` | | A JPEG of the screen. Off until "Allow remote screenshots" is turned on in the settings |
 | `POST /reload` | | Reloads the page |
 | `POST /home` | | Goes to the home page |
 | `POST /url` | `{"url": "https://...", "home": false}` | Opens a page. It has to be an allowed site unless `"home": true`, which also makes it the new home page |
@@ -94,7 +138,7 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -d '{"state": "off"}' http://192.
 curl -H "Authorization: Bearer $TOKEN" -o screen.jpg http://192.168.1.50:8765/screenshot
 ```
 
-### Home Assistant
+### Home Assistant without MQTT
 
 ```yaml
 # configuration.yaml
