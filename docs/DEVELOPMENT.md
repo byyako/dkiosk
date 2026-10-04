@@ -103,6 +103,7 @@ node testsite/cdp.mjs "document.getElementById('tel').click()"
 | 5xx | Open "HTTP 503" |
 | Server that never answers | Make `http://localhost:8780/hang` the home page; the error screen appears after 60 s and keeps retrying |
 | Home page redirected off-site | Make `http://localhost:8780/away` the home page; the error screen says to allow 127.0.0.1 |
+| Camera and microphone | Open "Camera and microphone" on the test page; Allow asks for the PIN and then Android's permission. Autoplay shows "blocked" until "Autoplay with sound" is on |
 | Page dialogs | "alert()" closes itself after a minute; "Leave with beforeunload" leaves without asking |
 | Renderer crash | `node testsite/cdp.mjs --method Page.crash` |
 | Frozen page | `node testsite/cdp.mjs --timeout 2000 "setTimeout(() => { while (true) {} }, 100)"`, recovers within about 45 s |

@@ -38,6 +38,15 @@ Self-signed certificates are trusted per host and exact SHA-256 fingerprint, aft
 fingerprint and asking for the PIN when protection is enabled. A different certificate for the same host gets a "changed"
 warning. `SslErrorHandler.proceed()` is never called unconditionally.
 
+Camera and microphone requests follow the same rules as certificates: only allowed hosts may ask,
+allowing needs the PIN, and the answer is remembered per host and feature. Blocking needs no PIN
+because it can't hurt, and remembering it stops a page asking a passer-by over and over. Android's
+own permission is requested only after an administrator allows a site, so a kiosk that never uses
+the camera never asks for it. Android's permission dialog pauses the activity, which dismisses the
+kiosk's prompts, so a request already allowed is held outside them until Android answers. Location
+and file uploads aren't supported: a dashboard rarely needs them, and the file picker would leave
+the kiosk.
+
 Basic auth credentials go in WebView's own database. Only allowed hosts can prompt; other hosts'
 requests are cancelled, including requests with previously saved credentials or certificate pins.
 Pending prompts are cancelled when the activity pauses or the renderer is replaced. Backups and

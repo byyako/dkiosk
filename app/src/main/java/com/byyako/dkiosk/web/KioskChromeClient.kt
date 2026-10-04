@@ -5,6 +5,7 @@ import android.os.Handler
 import android.os.Looper
 import android.webkit.JsPromptResult
 import android.webkit.JsResult
+import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import androidx.appcompat.app.AlertDialog
@@ -13,11 +14,15 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 /**
  * Page alerts and confirms. While one is open the page's JavaScript is paused, which would look like a
  * hang and would freeze a dashboard nobody is watching, so they close themselves after a minute.
- * "Leave this page?" prompts are always answered yes so they can't trap the kiosk.
+ * "Leave this page?" prompts are always answered yes so they can't trap the kiosk. Camera and
+ * microphone requests go to [onPermission].
  */
 class KioskChromeClient(
     private val activity: Activity,
     private val isCurrent: (WebView) -> Boolean = { true },
+    private val onPermission: (PermissionRequest, canceled: Boolean) -> Unit = { request, canceled ->
+        if (!canceled) request.deny()
+    },
 ) : WebChromeClient() {
 
     private val handler = Handler(Looper.getMainLooper())
@@ -52,6 +57,10 @@ class KioskChromeClient(
         result.cancel()
         return true
     }
+
+    override fun onPermissionRequest(request: PermissionRequest) = onPermission(request, false)
+
+    override fun onPermissionRequestCanceled(request: PermissionRequest) = onPermission(request, true)
 
     override fun onJsBeforeUnload(view: WebView, url: String, message: String, result: JsResult): Boolean {
         result.confirm()

@@ -21,6 +21,11 @@
             app:defaultValue="false"
             app:key="allow_zoom"
             app:title="@string/allow_zoom" />
+        <SwitchPreferenceCompat
+            app:defaultValue="false"
+            app:key="allow_autoplay"
+            app:summary="@string/allow_autoplay_summary"
+            app:title="@string/allow_autoplay" />
         <EditTextPreference
             app:dialogMessage="@string/user_agent_help"
             app:key="user_agent"
@@ -174,6 +179,9 @@
             app:key="forget_certificates"
             app:summary="@string/forget_certificates_summary"
             app:title="@string/forget_certificates" />
+        <Preference
+            app:key="forget_site_permissions"
+            app:title="@string/forget_site_permissions" />
         <Preference
             app:key="clear_site_data"
             app:summary="@string/clear_site_data_summary"

@@ -45,6 +45,16 @@
     <string name="blocked_host">Blocked: %1$s isn\'t an allowed site</string>
     <string name="blocked_scheme">Blocked: %1$s: links can\'t open in the kiosk</string>
 
+    <string name="access_title">Camera and microphone</string>
+    <string name="access_message">%1$s wants to use %2$s.\n\nAllow it only if this is your own dashboard and it needs it. The answer is remembered; settings can reset it. If PIN protection is on, allowing needs the PIN.</string>
+    <string name="access_camera">the camera</string>
+    <string name="access_microphone">the microphone</string>
+    <string name="access_camera_microphone">the camera and microphone</string>
+    <string name="access_allow">Allow</string>
+    <string name="access_block">Block</string>
+    <string name="access_not_now">Not now</string>
+    <string name="access_android_denied">Android hasn\'t given dKiosk camera or microphone access. Allow it in Android\'s app settings.</string>
+
     <string name="cert_untrusted_title">Untrusted certificate</string>
     <string name="cert_untrusted_message">%1$s uses a certificate Android doesn\'t trust, such as a self-signed one.\n\nSHA-256 fingerprint:\n%2$s\n\nOnly trust it if this is your own server and the fingerprint matches. If PIN protection is on, you\'ll need the PIN.</string>
     <string name="cert_changed_title">Certificate changed</string>
@@ -79,6 +89,8 @@
     <string name="restrict_navigation">Stay on these sites</string>
     <string name="restrict_navigation_on">Links to other sites are blocked</string>
     <string name="restrict_navigation_off">Any site can be opened</string>
+    <string name="allow_autoplay">Autoplay with sound</string>
+    <string name="allow_autoplay_summary">Pages can start video and audio with sound without a tap. Muted autoplay always works.</string>
     <string name="allow_zoom">Allow pinch to zoom</string>
     <string name="user_agent">User agent</string>
     <string name="user_agent_help">Leave empty to use the normal one. Some sites show a desktop layout for a desktop browser\'s user agent.</string>
@@ -149,6 +161,10 @@
     <string name="forget_certificates">Forget trusted certificates</string>
     <string name="forget_certificates_summary">Self-signed certificates will have to be approved again</string>
     <string name="forget_certificates_confirm">Every self-signed certificate you trusted will need to be approved again.</string>
+    <string name="forget_site_permissions">Forget camera and microphone answers</string>
+    <string name="forget_site_permissions_summary">Sites allowed: %1$d. Sites blocked: %2$d.</string>
+    <string name="forget_site_permissions_none">No site has asked yet</string>
+    <string name="forget_site_permissions_confirm">Pages will have to ask again before using the camera or microphone.</string>
     <string name="clear_site_data">Sign out of everything</string>
     <string name="clear_site_data_summary">Clears cookies, site storage and saved passwords</string>
     <string name="clear_site_data_confirm">The page will have to be signed in to again.</string>

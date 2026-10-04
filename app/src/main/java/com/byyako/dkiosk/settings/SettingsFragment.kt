@@ -32,6 +32,7 @@ import com.byyako.dkiosk.remote.KioskApi
 import com.byyako.dkiosk.remote.MqttStatus
 import com.byyako.dkiosk.remote.localIpAddress
 import com.byyako.dkiosk.ui.panForKeyboard
+import com.byyako.dkiosk.web.SitePermissions
 import com.byyako.dkiosk.web.allowedHostPattern
 import com.byyako.dkiosk.web.normalizeHomeUrl
 import java.time.DayOfWeek
@@ -61,6 +62,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
         onClick("api_address") { localIpAddress(requireContext())?.let { copy("http://$it:${prefs.apiPort}") } }
         onClick("change_pin", ::changePin)
         onClick("forget_certificates", ::forgetCertificates)
+        onClick("forget_site_permissions", ::forgetSitePermissions)
         onClick("clear_site_data", ::clearSiteData)
         onClick("choose_home_app") { HomeApp.openHomeSettings(requireContext()) }
         onClick("exit", ::exitKiosk)
@@ -82,6 +84,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
         super.onResume()
         updateApiAddress()
         updateMqttStatus()
+        updateSitePermissions()
         // Coming back from Android's home app screen, the choice may have changed.
         findPreference<SwitchPreferenceCompat>("home_screen")?.isChecked = HomeApp.isOffered(requireContext())
         findPreference<Preference>("choose_home_app")?.setSummary(
@@ -348,6 +351,21 @@ class SettingsFragment : PreferenceFragmentCompat() {
     private fun forgetCertificates() {
         confirm(R.string.forget_certificates, R.string.forget_certificates_confirm) {
             prefs.trustedCerts = emptySet()
+            toast(R.string.done)
+        }
+    }
+
+    private fun updateSitePermissions() {
+        val (allowed, blocked) = SitePermissions(load = { prefs.sitePermissions }, save = {}).counts()
+        findPreference<Preference>("forget_site_permissions")?.summary = if (allowed + blocked == 0) {
+            getString(R.string.forget_site_permissions_none)
+        } else getString(R.string.forget_site_permissions_summary, allowed, blocked)
+    }
+
+    private fun forgetSitePermissions() {
+        confirm(R.string.forget_site_permissions, R.string.forget_site_permissions_confirm) {
+            prefs.sitePermissions = emptySet()
+            updateSitePermissions()
             toast(R.string.done)
         }
     }

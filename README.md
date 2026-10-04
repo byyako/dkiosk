@@ -16,6 +16,8 @@ For public devices, optional [managed lockdown](docs/MANAGED-KIOSK.md) blocks An
   after checking their fingerprint. A changed certificate is flagged, never accepted silently.
 - **Stays signed in**: cookies and site storage survive restarts. HTTP basic auth prompts are
   supported and remembered.
+- **Camera and microphone**: a page on an allowed site can use them (for an intercom or voice
+  assistant, say) once the administrator allows it. Optionally, pages can autoplay with sound.
 - **Recovers on its own**: if the page can't load it shows why and retries (sooner when the network
   comes back), rebuilds the browser if it crashes, reloads a page that has frozen, and can go back to
   the home page after a period without touches or reload on a timer.
@@ -55,6 +57,12 @@ and touches outside the corner reset the sequence. The gesture works on the erro
 **Optional PIN:** turn "Require administrator PIN" on or off in settings. Existing installs keep
 their PIN protection. Without a PIN, anyone who knows the gesture can change settings, trust
 certificates and exit, including in managed lockdown.
+
+**Camera and microphone:** the first time a page asks, dKiosk asks whether to allow it. Allowing
+needs the PIN if protection is on; blocking doesn't. Both answers are remembered per site, and
+"Forget camera and microphone answers" in the settings resets them. Browsers only let secure pages
+use them: `https://` addresses, or `localhost`. A dashboard on plain `http://192.168.x.x` can't,
+whatever the kiosk allows.
 
 **Forgot the PIN?** Clear dKiosk's storage in Android's app settings (Settings, Apps, dKiosk Browser,
 Storage). That resets everything, including the sign-in to your page.

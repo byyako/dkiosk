@@ -1,7 +1,9 @@
 package com.byyako.dkiosk
 
 import android.annotation.SuppressLint
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ApplicationInfo
 import android.graphics.Color
 import android.graphics.Rect
@@ -63,6 +65,8 @@ import com.byyako.dkiosk.web.KioskChromeClient
 import com.byyako.dkiosk.web.KioskWebViewClient
 import com.byyako.dkiosk.web.NavigationPolicy
 import com.byyako.dkiosk.web.PagePrompts
+import com.byyako.dkiosk.web.SiteFeature
+import com.byyako.dkiosk.web.SitePermissions
 import com.byyako.dkiosk.web.TemporaryPage
 import com.byyako.dkiosk.web.Verdict
 import com.byyako.dkiosk.web.hostOf
@@ -142,6 +146,16 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         } else if (result.data?.getBooleanExtra(SettingsActivity.EXTRA_RELOAD, false) == true) loadHome()
     }
 
+    // Android's camera/microphone permission, asked for when an administrator allows a page to use them.
+    private var androidPermissionDone: ((Boolean) -> Unit)? = null
+    private val requestAndroidPermissions =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
+            val granted = results.isNotEmpty() && results.values.all { it }
+            if (!granted) Toast.makeText(this, R.string.access_android_denied, Toast.LENGTH_LONG).show()
+            androidPermissionDone?.invoke(granted)
+            androidPermissionDone = null
+        }
+
     // Registering the callback reports the network that's already up; only one that comes back counts.
     @Volatile private var offline = false
 
@@ -212,10 +226,19 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
 
         pinPrompt = PinPrompt(this, prefs)
         val certPins = CertificatePins(load = { prefs.trustedCerts }, save = { prefs.trustedCerts = it })
-        prompts = PagePrompts(this, certPins, ::navigationPolicy, pinPrompt::ask)
-        chromeClient = KioskChromeClient(this) { candidate ->
-            dashboardActive && !destroyed && ::webView.isInitialized && webView === candidate
-        }
+        val sitePermissions = SitePermissions(load = { prefs.sitePermissions }, save = { prefs.sitePermissions = it })
+        prompts = PagePrompts(this, certPins, sitePermissions, ::navigationPolicy, pinPrompt::ask, ::askAndroid)
+        chromeClient = KioskChromeClient(
+            this,
+            isCurrent = { candidate -> dashboardActive && !destroyed && ::webView.isInitialized && webView === candidate },
+            onPermission = { request, canceled ->
+                when {
+                    canceled -> prompts.onPermissionRequestCanceled(request)
+                    dashboardActive -> prompts.onPermissionRequest(request)
+                    else -> request.deny()
+                }
+            },
+        )
         errorScreen = ErrorScreen(binding.errorScreen) { load(failedUrl ?: homeUrl) }
         watchdog = Watchdog({ webView }, { chromeClient.isDialogOpen }, ::onPageUnresponsive)
         idleTimer = IdleTimer(::onIdle)
@@ -484,6 +507,24 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
         if (dashboardActive) prompts.onLoginRequest(host, realm, handler) else handler.cancel()
     }
 
+    private fun askAndroid(features: Set<SiteFeature>, done: (Boolean) -> Unit) {
+        val needed = features.map {
+            when (it) {
+                SiteFeature.CAMERA -> Manifest.permission.CAMERA
+                SiteFeature.MICROPHONE -> Manifest.permission.RECORD_AUDIO
+            }
+        }.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+        when {
+            needed.isEmpty() -> done(true)
+            // One Android dialog at a time; a second page request waits for the page to ask again.
+            androidPermissionDone != null -> done(false)
+            else -> {
+                androidPermissionDone = done
+                requestAndroidPermissions.launch(needed.toTypedArray())
+            }
+        }
+    }
+
     override fun onRendererGone(crashed: Boolean) {
         Log.w(TAG, "WebView renderer gone (crashed=$crashed), replacing the WebView")
         val now = SystemClock.uptimeMillis()
@@ -594,6 +635,7 @@ class KioskActivity : AppCompatActivity(), KioskWebViewClient.Callbacks {
 
     private fun applyWebSettings(view: WebView) {
         view.settings.apply {
+            mediaPlaybackRequiresUserGesture = !prefs.allowAutoplay
             setSupportZoom(prefs.allowZoom)
             builtInZoomControls = prefs.allowZoom
             userAgentString = prefs.userAgent

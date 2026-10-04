@@ -59,6 +59,15 @@ class KioskPrefs(context: Context) {
     val userAgent: String?
         get() = prefs.getString(USER_AGENT, null)?.trim()?.ifEmpty { null }
 
+    /** Pages may start video and audio with sound without a tap. */
+    val allowAutoplay: Boolean
+        get() = prefs.getBoolean(ALLOW_AUTOPLAY, false)
+
+    /** Remembered camera and microphone answers, see SitePermissions. */
+    var sitePermissions: Set<String>
+        get() = prefs.getStringSet(SITE_PERMISSIONS, null)?.toSet().orEmpty()
+        set(value) = prefs.edit { putStringSet(SITE_PERMISSIONS, value) }
+
     var trustedCerts: Set<String>
         get() = prefs.getStringSet(TRUSTED_CERTS, null)?.toSet().orEmpty()
         set(value) = prefs.edit { putStringSet(TRUSTED_CERTS, value) }
@@ -165,6 +174,8 @@ class KioskPrefs(context: Context) {
         const val ALLOW_ZOOM = "allow_zoom"
         const val USER_AGENT = "user_agent"
         const val TRUSTED_CERTS = "trusted_certs"
+        const val ALLOW_AUTOPLAY = "allow_autoplay"
+        const val SITE_PERMISSIONS = "site_permissions"
         const val IDLE_HOME_MINUTES = "idle_home_minutes"
         const val RELOAD_MINUTES = "reload_minutes"
         const val KEEP_SCREEN_ON = "keep_screen_on"

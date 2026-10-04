@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>dKiosk media test</title>
+  <style>
+    body { font: 18px system-ui, sans-serif; background: #111; color: #eee; margin: 0; padding: 16px; }
+    a, button { display: inline-block; margin: 4px; padding: 10px 14px; background: #2563eb; color: #fff;
+                border: 0; border-radius: 6px; font: inherit; text-decoration: none; }
+    video { width: 320px; height: 240px; background: #000; display: block; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Camera, microphone and autoplay</h1>
+  <p>Camera and microphone only work on secure pages: https:// or localhost.</p>
+  <div>
+    <button id="camera" onclick="ask({video: true})">Camera</button>
+    <button id="mic" onclick="ask({audio: true})">Microphone</button>
+    <button id="both" onclick="ask({video: true, audio: true})">Both</button>
+    <a href="/">Back</a>
+  </div>
+  <p>Result: <b id="result">none yet</b></p>
+  <video id="preview" autoplay muted playsinline></video>
+  <p>Autoplay with sound: <b id="autoplay">checking</b></p>
+  <script>
+    const result = document.getElementById("result");
+    async function ask(constraints) {
+      result.textContent = "asking";
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        result.textContent = "granted: " + stream.getTracks().map(t => t.kind).join(", ");
+        if (constraints.video) document.getElementById("preview").srcObject = stream;
+        else setTimeout(() => stream.getTracks().forEach(t => t.stop()), 2000);
+      } catch (e) {
+        result.textContent = "denied (" + e.name + ")";
+      }
+    }
+    // A tenth of a second of silence, not muted. Without "Autoplay with sound" this is refused until a tap.
+    const tone = new Audio("data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==");
+    tone.play().then(() => document.getElementById("autoplay").textContent = "allowed")
+      .catch(e => document.getElementById("autoplay").textContent = "blocked (" + e.name + ")");
+  </script>
+</body>
+</html>

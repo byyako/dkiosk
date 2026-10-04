@@ -2,7 +2,9 @@ package com.byyako.dkiosk.web
 
 import android.app.Activity
 import android.view.LayoutInflater
+import android.util.Log
 import android.webkit.HttpAuthHandler
+import android.webkit.PermissionRequest
 import android.webkit.SslErrorHandler
 import android.webkit.WebViewDatabase
 import androidx.appcompat.app.AlertDialog
@@ -12,18 +14,24 @@ import com.byyako.dkiosk.databinding.DialogLoginBinding
 import com.byyako.dkiosk.ui.panForKeyboard
 
 /**
- * Dialogs a page can trigger: trusting a self-signed certificate and HTTP basic auth logins.
- * Only the kiosk's own sites may ask; for anything else the request is cancelled silently.
+ * Dialogs a page can trigger: trusting a self-signed certificate, HTTP basic auth logins and camera
+ * or microphone access. Only the kiosk's own sites may ask; for anything else the request is
+ * cancelled silently.
  */
 class PagePrompts(
     private val activity: Activity,
     private val certPins: CertificatePins,
+    private val sitePermissions: SitePermissions,
     private val policy: () -> NavigationPolicy,
     private val askForPin: (onSuccess: () -> Unit, onCancel: () -> Unit) -> Unit,
+    /** Gets Android's own permission for [features] if dKiosk doesn't have it yet. */
+    private val askAndroid: (features: Set<SiteFeature>, done: (granted: Boolean) -> Unit) -> Unit,
 ) {
     // Several requests can hit the same certificate or login at once; they share one dialog.
     private val pendingCerts = mutableMapOf<String, MutableList<SslErrorHandler>>()
     private val pendingLogins = mutableMapOf<String, MutableList<HttpAuthHandler>>()
+    private val pendingAccess = mutableMapOf<String, MutableList<PermissionRequest>>()
+    private val accessDialogs = mutableMapOf<String, AlertDialog>()
     private val dialogs = mutableSetOf<AlertDialog>()
     private var generation = 0
 
@@ -32,8 +40,11 @@ class PagePrompts(
         generation++
         pendingCerts.values.flatten().forEach { it.cancel() }
         pendingLogins.values.flatten().forEach { it.cancel() }
+        pendingAccess.values.flatten().forEach { deny(it) }
         pendingCerts.clear()
         pendingLogins.clear()
+        pendingAccess.clear()
+        accessDialogs.clear()
         dialogs.toList().forEach { it.dismiss() }
         dialogs.clear()
     }
@@ -69,6 +80,100 @@ class PagePrompts(
             return
         }
         askForLogin(host, realm, username, handler)
+    }
+
+    fun onPermissionRequest(request: PermissionRequest) {
+        val host = request.origin.host
+        val features = request.resources.mapNotNull { FEATURES[it] }.toSet()
+        // Other kinds (protected media IDs, MIDI) aren't something a kiosk page needs.
+        if (host == null || features.isEmpty() || !policy().allowsHost(host)) {
+            deny(request)
+            return
+        }
+        val decisions = features.map { sitePermissions.decision(host, it) }
+        when {
+            SitePermissions.Decision.BLOCK in decisions -> deny(request)
+            decisions.all { it == SitePermissions.Decision.ALLOW } -> grantWithAndroid(request, features)
+            else -> askForAccess(host, features, request)
+        }
+    }
+
+    fun onPermissionRequestCanceled(request: PermissionRequest) {
+        val key = pendingAccess.entries.firstOrNull { request in it.value }?.key ?: return
+        val waiting = pendingAccess.getValue(key)
+        waiting.remove(request)
+        if (waiting.isEmpty()) {
+            pendingAccess.remove(key)
+            accessDialogs.remove(key)?.dismiss()
+        }
+    }
+
+    private fun askForAccess(host: String, features: Set<SiteFeature>, request: PermissionRequest) {
+        val key = "$host|${features.sorted().joinToString(",")}"
+        if (queue(pendingAccess, key, request)) return
+        val requestedAt = generation
+
+        val what = when (features) {
+            setOf(SiteFeature.CAMERA) -> R.string.access_camera
+            setOf(SiteFeature.MICROPHONE) -> R.string.access_microphone
+            else -> R.string.access_camera_microphone
+        }
+        val dialog = MaterialAlertDialogBuilder(activity)
+            .setTitle(R.string.access_title)
+            .setMessage(activity.getString(R.string.access_message, host, activity.getString(what)))
+            .setCancelable(false)
+            .setPositiveButton(R.string.access_allow) { _, _ ->
+                // Like trusting a certificate, this is for the administrator to decide.
+                askForPin(
+                    {
+                        if (requestedAt != generation) return@askForPin
+                        val waiting = pendingAccess.remove(key).orEmpty()
+                        if (policy().allowsHost(host)) {
+                            sitePermissions.remember(host, features, SitePermissions.Decision.ALLOW)
+                            waiting.forEach { grantWithAndroid(it, features) }
+                        } else waiting.forEach { deny(it) }
+                    },
+                    { if (requestedAt == generation) pendingAccess.remove(key)?.forEach { deny(it) } },
+                )
+            }
+            .setNegativeButton(R.string.access_block) { _, _ ->
+                sitePermissions.remember(host, features, SitePermissions.Decision.BLOCK)
+                pendingAccess.remove(key)?.forEach { deny(it) }
+            }
+            .setNeutralButton(R.string.access_not_now) { _, _ ->
+                pendingAccess.remove(key)?.forEach { deny(it) }
+            }
+            .create()
+        accessDialogs[key] = dialog
+        dialog.setOnDismissListener {
+            dialogs.remove(dialog)
+            if (accessDialogs[key] === dialog) accessDialogs.remove(key)
+        }
+        dialogs.add(dialog)
+        dialog.show()
+    }
+
+    /**
+     * Android's own permission dialog pauses the kiosk, which dismisses this class's prompts, so
+     * the request is held here rather than in the pending lists until Android answers.
+     */
+    private fun grantWithAndroid(request: PermissionRequest, features: Set<SiteFeature>) {
+        askAndroid(features) { granted ->
+            val resources = request.resources.filter { FEATURES[it] in features }.toTypedArray()
+            try {
+                if (granted) request.grant(resources) else request.deny()
+            } catch (e: IllegalStateException) {
+                Log.w(TAG, "Page permission request ended before it was answered", e)
+            }
+        }
+    }
+
+    private fun deny(request: PermissionRequest) {
+        try {
+            request.deny()
+        } catch (e: IllegalStateException) {
+            Log.w(TAG, "Page permission request ended before it was answered", e)
+        }
     }
 
     private fun askToTrust(host: String, fingerprint: String, handler: SslErrorHandler) {
@@ -143,6 +248,14 @@ class PagePrompts(
             .create()
             .apply { panForKeyboard() }
         show(dialog)
+    }
+
+    private companion object {
+        const val TAG = "PagePrompts"
+        val FEATURES = mapOf(
+            PermissionRequest.RESOURCE_VIDEO_CAPTURE to SiteFeature.CAMERA,
+            PermissionRequest.RESOURCE_AUDIO_CAPTURE to SiteFeature.MICROPHONE,
+        )
     }
 
     /** Adds [handler] to the waiting list for [key]; returns true if a dialog for it is already open. */
